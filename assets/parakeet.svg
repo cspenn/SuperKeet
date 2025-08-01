@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Parakeet silhouette icon -->
+  <g fill="#007AFF">
+    <!-- Body -->
+    <ellipse cx="16" cy="20" rx="8" ry="10" transform="rotate(-10 16 20)"/>
+    <!-- Head -->
+    <circle cx="16" cy="10" r="6"/>
+    <!-- Beak -->
+    <path d="M10 10 L7 11 L10 12 Z"/>
+    <!-- Tail feathers -->
+    <path d="M20 26 L22 30 L21 30 Z"/>
+    <path d="M18 27 L19 31 L18 31 Z"/>
+    <!-- Crest -->
+    <path d="M16 4 L15 7 L16 7 L17 7 L16 4 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,46 @@
+# SuperKeet Configuration
+
+# Application settings
+app:
+  name: "SuperKeet"
+  version: "0.1.0"
+  
+# Logging configuration
+logging:
+  level: "DEBUG"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  directory: "logs"
+  
+# Audio settings
+audio:
+  sample_rate: 16000
+  channels: 1
+  chunk_size: 1024
+  device: null  # null for default device
+  
+# ASR settings
+asr:
+  model_id: "mlx-community/parakeet-tdt-0.6b-v2"
+  device: "mps"  # Metal Performance Shaders for Apple Silicon
+  
+# Hotkey settings
+hotkey:
+  combination: ["ctrl", "space"]
+  
+# UI settings
+ui:
+  icon_idle: "🎙"
+  icon_recording: "🔴"
+  icon_processing: "⚙️"
+  
+# Text injection settings
+text:
+  method: "clipboard"  # "clipboard" or "accessibility"
+  delay_ms: 100
+  auto_paste: true  # Auto-paste transcribed text (requires accessibility permissions)
+
+# Transcript settings
+transcripts:
+  enabled: false  # Save transcripts to disk
+  directory: "transcripts"  # Directory to save transcripts
+  format: "text"  # "text" or "json"

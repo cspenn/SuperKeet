@@ -4,6 +4,7 @@
 import os
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import soundfile as sf
@@ -23,9 +24,17 @@ class ASRTranscriber:
         self.model_id = config.get("asr.model_id", "mlx-community/parakeet-tdt-0.6b-v2")
         self.device = config.get("asr.device", "mps")
         self.model = None
-        self.sample_rate = 16000  # Parakeet expects 16kHz
+        # Get expected sample rate from audio recorder configuration
+        self.expected_sample_rate = config.get("audio.sample_rate", 16000)
+        self.parakeet_native_rate = 16000  # Parakeet's native expected rate
 
         logger.info(f"ASRTranscriber initialized with model: {self.model_id}")
+        logger.info(
+            f"Expected input: {self.expected_sample_rate}Hz, Parakeet native: {self.parakeet_native_rate}Hz"
+        )
+
+        # Report resampling strategy
+        self._report_resampling_strategy()
 
     def _get_cache_dir(self) -> Path:
         """Get the Hugging Face cache directory.
@@ -89,11 +98,13 @@ class ASRTranscriber:
             logger.error("Please check your internet connection and try again")
             raise
 
-    def transcribe(self, audio_data: np.ndarray) -> str:
+    def transcribe(self, audio_data: np.ndarray, input_sample_rate: Optional[int] = None) -> str:
         """Transcribe audio data to text.
 
         Args:
             audio_data: Numpy array containing audio samples.
+            input_sample_rate: Actual sample rate of the input audio data.
+                              If None, uses expected_sample_rate from config.
 
         Returns:
             Transcribed text string.
@@ -106,9 +117,29 @@ class ASRTranscriber:
             return ""
 
         try:
-            logger.debug(
-                f"Transcribing audio: {len(audio_data) / self.sample_rate:.2f}s"
-            )
+            # Determine actual input sample rate
+            actual_rate = input_sample_rate or self.expected_sample_rate
+            duration = len(audio_data) / actual_rate
+            logger.debug(f"🐛 Transcribing audio: {duration:.2f}s @ {actual_rate}Hz")
+
+            # Validate audio quality before processing
+            self._validate_audio_for_asr(audio_data, actual_rate)
+
+            # Optimize resampling strategy
+            if actual_rate == self.parakeet_native_rate:
+                # OPTIMAL: No resampling needed!
+                logger.debug("🟢 OPTIMAL: Audio already at 16kHz - no resampling needed")
+                audio_data = audio_data.astype(np.float32)
+                target_sample_rate = self.parakeet_native_rate
+            elif actual_rate != self.parakeet_native_rate:
+                # Resample to Parakeet native rate
+                logger.debug(
+                    f"🟡 Resampling audio from {actual_rate}Hz to {self.parakeet_native_rate}Hz"
+                )
+                audio_data = self._resample_audio(audio_data, actual_rate, self.parakeet_native_rate)
+                target_sample_rate = self.parakeet_native_rate
+            else:
+                target_sample_rate = actual_rate
 
             # Ensure audio is float32
             if audio_data.dtype != np.float32:
@@ -118,10 +149,10 @@ class ASRTranscriber:
             if np.abs(audio_data).max() > 1.0:
                 audio_data = audio_data / np.abs(audio_data).max()
 
-            # Save audio to temporary file
+            # Save audio to temporary file using target sample rate
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
                 temp_path = temp_file.name
-                sf.write(temp_path, audio_data, self.sample_rate)
+                sf.write(temp_path, audio_data, target_sample_rate)
                 logger.debug(f"Saved audio to temporary file: {temp_path}")
 
             try:
@@ -145,6 +176,91 @@ class ASRTranscriber:
         except Exception as e:
             logger.error(f"Transcription failed: {e}")
             raise
+
+    def _validate_audio_for_asr(self, audio_data: np.ndarray, input_sample_rate: int) -> None:
+        """Validate audio data before ASR processing.
+
+        Args:
+            audio_data: Audio data to validate.
+            input_sample_rate: Sample rate of the input audio
+        """
+        # Calculate audio statistics
+        rms = np.sqrt(np.mean(audio_data**2))
+        peak = np.max(np.abs(audio_data))
+        duration = len(audio_data) / input_sample_rate
+
+        # Check for silence (very low RMS)
+        if rms < 0.001:
+            logger.warning(
+                f"🟡 ASR validation warning: Very low RMS {rms:.6f} - possible silence or wrong microphone"
+            )
+
+        # Check for clipping
+        clipped_samples = np.sum(np.abs(audio_data) > 0.99)
+        if clipped_samples > len(audio_data) * 0.01:  # More than 1% clipped
+            logger.warning(
+                f"🟡 ASR validation warning: Audio clipping detected in {clipped_samples} samples ({clipped_samples / len(audio_data) * 100:.1f}%)"
+            )
+
+        # Log audio quality metrics for ASR
+        logger.debug(
+            f"🟢 ASR audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"
+        )
+
+    def _report_resampling_strategy(self) -> None:
+        """Report the resampling strategy for this ASR configuration."""
+        if self.expected_sample_rate == self.parakeet_native_rate:
+            logger.info(
+                f"🟢 OPTIMAL: Expected input matches Parakeet native rate ({self.parakeet_native_rate}Hz)"
+            )
+            logger.info("🟢 No resampling overhead - maximum performance and quality")
+        else:
+            logger.info(
+                f"🟡 Expected input: {self.expected_sample_rate}Hz, will resample to {self.parakeet_native_rate}Hz"
+            )
+            logger.info("🟡 Single resampling operation - good performance")
+
+    def _resample_audio(self, audio_data: np.ndarray, input_rate: int, target_rate: int) -> np.ndarray:
+        """Resample audio data from input rate to target sample rate.
+
+        Args:
+            audio_data: Input audio data
+            input_rate: Input sample rate  
+            target_rate: Target sample rate
+
+        Returns:
+            Resampled audio data
+        """
+        if input_rate == target_rate:
+            return audio_data
+
+        try:
+            # Use high-quality resampling when available
+            try:
+                from scipy.signal import resample
+
+                # Calculate new length
+                new_length = int(len(audio_data) * target_rate / input_rate)
+                resampled = resample(audio_data, new_length)
+                logger.debug(
+                    f"HQ resample: {len(audio_data)} samples @ {input_rate}Hz → {len(resampled)} samples @ {target_rate}Hz"
+                )
+                return resampled.astype(np.float32)
+            except ImportError:
+                # Fallback to linear interpolation
+                logger.debug("Using linear interpolation resampling (scipy unavailable)")
+                ratio = target_rate / input_rate
+                new_length = int(len(audio_data) * ratio)
+                resampled = np.interp(
+                    np.linspace(0, len(audio_data) - 1, new_length),
+                    np.arange(len(audio_data)),
+                    audio_data,
+                )
+                return resampled.astype(np.float32)
+        except Exception as e:
+            logger.error(f"Resampling failed: {e}")
+            logger.warning("Using original audio without resampling - may cause transcription errors")
+            return audio_data
 
     def unload_model(self) -> None:
         """Unload the model from memory."""

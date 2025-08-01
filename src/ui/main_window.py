@@ -6,8 +6,8 @@ Provides detailed feedback and control with a sleek, responsive UI.
 
 import logging
 
-from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -22,13 +22,16 @@ from PySide6.QtWidgets import (
 
 from src.config.config_loader import config
 
-from .waveform_widget import WaveformWidget
+from .audio_animation_widget import AudioAnimationWidget
 
 logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
     """Main application window with waveform visualization and transcription output."""
+
+    # Signal emitted when microphone selection changes
+    microphone_changed = Signal(object)  # object to handle None or integer
 
     def __init__(self):
         super().__init__()
@@ -49,6 +52,7 @@ class MainWindow(QMainWindow):
         # Set up the UI
         self._setup_ui()
         self._apply_styles()
+        self._setup_shortcuts()
 
         logger.info("🟢 MainWindow initialized")
 
@@ -69,6 +73,14 @@ class MainWindow(QMainWindow):
 
         return "+".join(formatted)
 
+    def _setup_shortcuts(self):
+        """Set up keyboard shortcuts."""
+        # Cmd+, (Command+Comma) for Settings - standard macOS shortcut
+        settings_shortcut = QShortcut(QKeySequence("Cmd+,"), self)
+        settings_shortcut.activated.connect(self._show_settings)
+
+        logger.info("🟢 MainWindow keyboard shortcuts set up (Cmd+, for settings)")
+
     def _setup_ui(self):
         """Set up the UI components."""
         # Central widget
@@ -84,10 +96,10 @@ class MainWindow(QMainWindow):
         header = self._create_header()
         main_layout.addWidget(header)
 
-        # Waveform area
-        self.waveform_widget = WaveformWidget()
-        self.waveform_widget.setMinimumHeight(150)
-        main_layout.addWidget(self.waveform_widget)
+        # Audio animation area
+        self.audio_animation = AudioAnimationWidget()
+        self.audio_animation.setMinimumHeight(150)
+        main_layout.addWidget(self.audio_animation)
 
         # Separator
         separator1 = QFrame()
@@ -158,6 +170,8 @@ class MainWindow(QMainWindow):
         self.mic_selector = QComboBox()
         self.mic_selector.setMinimumWidth(200)
         self._populate_audio_devices()
+        # Connect the microphone selector to update the audio device
+        self.mic_selector.currentIndexChanged.connect(self._on_microphone_changed)
         layout.addWidget(self.mic_selector)
 
         layout.addStretch()
@@ -174,19 +188,34 @@ class MainWindow(QMainWindow):
     def _populate_audio_devices(self):
         """Populate the microphone selector with available devices."""
         # Add default device option
-        self.mic_selector.addItem("Default Device")
-        
+        self.mic_selector.addItem("Default Device", None)
+
         # Get available audio input devices
         try:
             from src.audio.recorder import AudioRecorder
+
             audio_recorder = AudioRecorder()
             devices = audio_recorder.get_devices()
-            
+
             for device in devices:
                 device_name = device.get("name", "Unknown Device")
-                self.mic_selector.addItem(device_name)
-                
+                device_index = device.get("index", 0)
+                # Add device to combo box with index as data
+                self.mic_selector.addItem(device_name, device_index)
+
             logger.info(f"Found {len(devices)} audio input devices")
+
+            # Set current selection based on config
+            current_device = config.get("audio.device")
+            if current_device is None:
+                self.mic_selector.setCurrentIndex(0)  # Default device
+            else:
+                # Find device by index
+                for i in range(self.mic_selector.count()):
+                    if self.mic_selector.itemData(i) == current_device:
+                        self.mic_selector.setCurrentIndex(i)
+                        break
+
         except Exception as e:
             logger.error(f"Failed to get audio devices: {e}")
 
@@ -316,13 +345,13 @@ class MainWindow(QMainWindow):
         if self._current_state == "recording":
             self._status_dot_timer.start(100)  # Pulse every 100ms
             self.hint_label.setText("Release to transcribe.")
-            self.waveform_widget.start_recording()
+            self.audio_animation.start_recording()
         else:
             self._status_dot_timer.stop()
 
             if self._current_state == "processing":
                 self.hint_label.setText("Processing...")
-                self.waveform_widget.stop_recording()
+                self.audio_animation.stop_recording()
             elif self._current_state == "idle":
                 # Don't immediately reset hint text if we just copied to clipboard
                 if not self._clipboard_timer.isActive():
@@ -331,7 +360,7 @@ class MainWindow(QMainWindow):
                     self.hint_label.setText(
                         f"Hold [{hotkey_display}] to speak. Release to transcribe."
                     )
-                self.waveform_widget.clear()
+                self.audio_animation.clear()
 
     @Slot(str)
     def update_transcription(self, text: str):
@@ -363,6 +392,18 @@ class MainWindow(QMainWindow):
         event.ignore()
         self.hide()
         logger.info("🟢 MainWindow hidden")
+
+    def _on_microphone_changed(self, index: int):
+        """Handle microphone selection change."""
+        device_index = self.mic_selector.itemData(index)
+        device_name = self.mic_selector.itemText(index)
+        logger.info(
+            f"🎙️ Main window microphone changed to: [{device_index}] {device_name}"
+        )
+
+        # Emit signal to notify that the microphone selection has changed
+        # The tray app will connect to this signal and update the audio recorder
+        self.microphone_changed.emit(device_index)
 
     def _show_settings(self):
         """Show settings dialog."""

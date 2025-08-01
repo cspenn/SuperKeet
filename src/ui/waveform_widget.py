@@ -5,7 +5,6 @@ Uses pyqtgraph for high-performance plotting.
 """
 
 import logging
-from collections import deque
 
 import numpy as np
 import pyqtgraph as pg
@@ -24,14 +23,18 @@ class WaveformWidget(QWidget):
         self.buffer_duration = buffer_duration
         self.buffer_size = int(sample_rate * buffer_duration)
 
-        # Audio data buffer
-        self.audio_buffer = deque(maxlen=self.buffer_size)
-        self.audio_buffer.extend([0] * self.buffer_size)
+        # Audio data buffer - use numpy array for consistency
+        self.audio_buffer = np.zeros(self.buffer_size, dtype=np.float32)
+        self.buffer_write_pos = 0
 
-        # Update timer
+        # Update timer - reduced frequency for better performance
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self._update_plot)
-        self.update_timer.setInterval(50)  # 20 FPS
+        self.update_timer.setInterval(100)  # 10 FPS for better performance
+
+        # Performance optimization settings
+        self.display_decimation = 4  # Show every 4th sample for performance
+        self.last_update_time = 0
 
         # Recording state
         self.is_recording = False
@@ -77,39 +80,88 @@ class WaveformWidget(QWidget):
         if not self.is_recording:
             return
 
-        # Normalize audio data to [-1, 1] range
-        if audio_chunk.size > 0:
-            # Convert to mono if stereo
-            if len(audio_chunk.shape) > 1 and audio_chunk.shape[1] > 1:
-                audio_chunk = audio_chunk.mean(axis=1)
+        try:
+            # Normalize audio data to [-1, 1] range
+            if audio_chunk.size > 0:
+                # Convert to mono if stereo
+                if len(audio_chunk.shape) > 1 and audio_chunk.shape[1] > 1:
+                    audio_chunk = audio_chunk.mean(axis=1)
 
-            # Normalize
-            max_val = np.abs(audio_chunk).max()
-            if max_val > 0:
-                normalized = (
-                    audio_chunk / max_val * 0.8
-                )  # Scale to 80% to avoid clipping
-            else:
-                normalized = audio_chunk
+                # Ensure it's 1D and float32
+                audio_chunk = audio_chunk.flatten().astype(np.float32)
 
-            # Add to buffer
-            self.audio_buffer.extend(normalized)
+                # Normalize
+                max_val = np.abs(audio_chunk).max()
+                if max_val > 0:
+                    normalized = (
+                        audio_chunk / max_val * 0.8
+                    )  # Scale to 80% to avoid clipping
+                else:
+                    normalized = audio_chunk
+
+                # Add to circular buffer
+                self._add_to_circular_buffer(normalized)
+        except Exception as e:
+            logger.error(f"Error updating waveform data: {e}")
+
+    def _add_to_circular_buffer(self, data: np.ndarray):
+        """Add data to the circular buffer efficiently."""
+        data_len = len(data)
+        if data_len == 0:
+            return
+
+        # Pre-allocate for better performance
+        if data_len > self.buffer_size:
+            # If data is larger than buffer, only keep the most recent part
+            data = data[-self.buffer_size :]
+            data_len = len(data)
+
+        # Handle buffer wrap-around
+        end_pos = self.buffer_write_pos + data_len
+
+        if end_pos <= self.buffer_size:
+            # Simple case: data fits without wrapping
+            self.audio_buffer[self.buffer_write_pos : end_pos] = data
+        else:
+            # Wrap-around case: split the data
+            first_part_size = self.buffer_size - self.buffer_write_pos
+            self.audio_buffer[self.buffer_write_pos :] = data[:first_part_size]
+            self.audio_buffer[: end_pos - self.buffer_size] = data[first_part_size:]
+
+        self.buffer_write_pos = end_pos % self.buffer_size
 
     def _update_plot(self):
-        """Update the waveform plot."""
+        """Update the waveform plot with performance optimizations."""
         if self.is_recording:
-            # Convert buffer to numpy array for plotting
-            data = np.array(self.audio_buffer)
+            try:
+                import time
 
-            # Create time axis
-            time_axis = np.arange(len(data))
+                current_time = time.time()
 
-            # Update plot
-            self.plot_curve.setData(time_axis, data)
+                # Throttle updates to prevent excessive CPU usage
+                if (
+                    current_time - self.last_update_time < 0.05
+                ):  # Minimum 50ms between updates
+                    return
+
+                self.last_update_time = current_time
+
+                # Decimate data for visualization performance
+                decimated_data = self.audio_buffer[:: self.display_decimation].copy()
+
+                # Create time axis for decimated data
+                time_axis = np.arange(len(decimated_data))
+
+                # Update plot with decimated data
+                self.plot_curve.setData(time_axis, decimated_data)
+
+            except Exception as e:
+                logger.error(f"Error updating waveform plot: {e}")
 
     def start_recording(self):
         """Start the waveform display."""
         self.is_recording = True
+        self.last_update_time = 0  # Reset throttle timer
         self.update_timer.start()
         logger.info("🟢 Waveform recording started")
 
@@ -124,36 +176,43 @@ class WaveformWidget(QWidget):
 
     def _fade_out(self):
         """Fade out the waveform smoothly."""
-        # Simple fade by reducing amplitude
-        current_data = np.array(self.audio_buffer)
+        try:
+            # Simple fade by reducing amplitude
+            current_data = self.audio_buffer.copy()
 
-        fade_steps = 10
-        fade_duration = 500  # ms
-        fade_timer = QTimer()
+            fade_steps = 8  # Reduced steps for better performance
+            fade_duration = 400  # ms - shorter duration
+            fade_timer = QTimer()
 
-        def fade_step():
-            nonlocal fade_steps
-            fade_steps -= 1
+            def fade_step():
+                nonlocal fade_steps
+                fade_steps -= 1
 
-            if fade_steps <= 0:
-                fade_timer.stop()
-                self.update_timer.stop()
-                self.clear()
-            else:
-                # Reduce amplitude
-                fade_factor = fade_steps / 10.0
-                faded_data = current_data * fade_factor
-                self.plot_curve.setData(np.arange(len(faded_data)), faded_data)
+                if fade_steps <= 0:
+                    fade_timer.stop()
+                    self.update_timer.stop()
+                    self.clear()
+                else:
+                    # Reduce amplitude with decimated data for performance
+                    fade_factor = fade_steps / 8.0
+                    decimated_data = current_data[:: self.display_decimation]
+                    faded_data = decimated_data * fade_factor
+                    self.plot_curve.setData(np.arange(len(faded_data)), faded_data)
 
-        fade_timer.timeout.connect(fade_step)
-        fade_timer.start(fade_duration // 10)
+            fade_timer.timeout.connect(fade_step)
+            fade_timer.start(fade_duration // 8)
+        except Exception as e:
+            logger.error(f"Error during waveform fade out: {e}")
+            # Fallback: just clear immediately
+            self.update_timer.stop()
+            self.clear()
 
     def clear(self):
         """Clear the waveform display."""
-        self.audio_buffer.clear()
-        self.audio_buffer.extend([0] * self.buffer_size)
+        self.audio_buffer.fill(0.0)
+        self.buffer_write_pos = 0
         self.plot_curve.setData([], [])
-        logger.info("🟢 Waveform cleared")
+        logger.info("Waveform cleared")
 
 
 # end src/ui/waveform_widget.py

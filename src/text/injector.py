@@ -22,7 +22,9 @@ class TextInjector:
         self.auto_paste = config.get("text.auto_paste", True)
         self.keyboard = Controller()
 
-        logger.info(f"TextInjector initialized with method: {self.method}, auto_paste: {self.auto_paste}")
+        logger.info(
+            f"TextInjector initialized with method: {self.method}, auto_paste: {self.auto_paste}"
+        )
 
     def inject(self, text: str) -> bool:
         """Inject text into the active application.
@@ -88,7 +90,9 @@ class TextInjector:
 
                 logger.debug(f"Auto-pasted {len(text)} characters via clipboard")
             else:
-                logger.debug(f"Copied {len(text)} characters to clipboard (auto-paste disabled)")
+                logger.debug(
+                    f"Copied {len(text)} characters to clipboard (auto-paste disabled)"
+                )
 
             # Optionally restore original clipboard
             # (commented out as it might interfere with paste operation)

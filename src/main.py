@@ -32,7 +32,7 @@ def signal_handler(sig, frame):
 def main() -> None:
     """Main function to run SuperKeet."""
     global app_instance
-    
+
     logger.info("Starting SuperKeet...")
 
     # Set up signal handlers

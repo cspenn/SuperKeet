@@ -3,22 +3,28 @@
 
 from typing import List
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
+    QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from src.audio.recorder import AudioRecorder
 from src.config.config_loader import config
 from src.utils.logger import setup_logger
-from src.audio.recorder import AudioRecorder
 
 logger = setup_logger(__name__)
 
@@ -40,7 +46,7 @@ class HotkeyEdit(QWidget):
 
         self.hotkey_label = QLabel(self._format_hotkey())
         self.hotkey_label.setStyleSheet(
-            "border: 1px solid #ccc; padding: 5px; background: #f9f9f9;"
+            "border: 1px solid #3A3A3A; padding: 8px; background: #2A2A2A; color: #EAEAEA; border-radius: 4px; font-weight: bold;"
         )
         layout.addWidget(self.hotkey_label)
 
@@ -86,11 +92,15 @@ class HotkeyEdit(QWidget):
 class SettingsDialog(QDialog):
     """Settings dialog for SuperKeet configuration."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, audio_recorder=None):
         super().__init__(parent)
         self.setWindowTitle("SuperKeet Settings")
         self.setModal(True)
-        self.setFixedSize(400, 300)
+        self.audio_recorder = audio_recorder
+
+        # Set responsive sizing
+        self.setMinimumSize(650, 550)
+        self.resize(700, 650)
 
         self._setup_ui()
         self._load_current_settings()
@@ -100,25 +110,40 @@ class SettingsDialog(QDialog):
     def _setup_ui(self):
         """Set up the settings dialog UI."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
 
-        # Form layout for settings
-        form_layout = QFormLayout()
+        # Create scroll area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # Content widget
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(15)
+
+        # Basic settings group
+        basic_group = QGroupBox("Basic Settings")
+        basic_layout = QFormLayout(basic_group)
 
         # Hotkey setting
         self.hotkey_edit = HotkeyEdit(
             config.get("hotkey.combination", ["ctrl", "space"])
         )
-        form_layout.addRow("Hotkey:", self.hotkey_edit)
+        basic_layout.addRow("Hotkey:", self.hotkey_edit)
 
         # Audio device setting
         self.audio_device_combo = QComboBox()
         self._populate_audio_devices()
-        form_layout.addRow("Audio Device:", self.audio_device_combo)
+        # Add real-time device change notification
+        self.audio_device_combo.currentIndexChanged.connect(self._on_device_changed)
+        basic_layout.addRow("Audio Device:", self.audio_device_combo)
 
         # Log level setting
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
-        form_layout.addRow("Log Level:", self.log_level_combo)
+        basic_layout.addRow("Log Level:", self.log_level_combo)
 
         # Text injection method
         self.injection_method_combo = QComboBox()
@@ -127,46 +152,115 @@ class SettingsDialog(QDialog):
         self.injection_method_combo.setEnabled(
             False
         )  # Only clipboard supported for now
-        form_layout.addRow("Text Injection:", self.injection_method_combo)
-        
+        basic_layout.addRow("Text Injection:", self.injection_method_combo)
+
         # Auto-paste checkbox
-        from PySide6.QtWidgets import QCheckBox
         self.auto_paste_checkbox = QCheckBox("Auto-paste after transcription")
         self.auto_paste_checkbox.setToolTip(
             "Automatically paste transcribed text (requires accessibility permissions)"
         )
-        form_layout.addRow("", self.auto_paste_checkbox)
-        
+        basic_layout.addRow("", self.auto_paste_checkbox)
+
+        content_layout.addWidget(basic_group)
+
+        # Audio storage section
+        audio_storage_group = QGroupBox("Audio Storage")
+        audio_storage_layout = QFormLayout(audio_storage_group)
+
+        # Enable audio storage checkbox
+        self.audio_storage_enabled = QCheckBox("Save audio recordings")
+        self.audio_storage_enabled.setToolTip("Save original audio recordings to disk")
+        audio_storage_layout.addRow(self.audio_storage_enabled)
+
+        # Audio storage directory
+        audio_dir_layout = QHBoxLayout()
+        self.audio_storage_dir = QLineEdit()
+        self.audio_storage_dir.setPlaceholderText("audio_recordings")
+        audio_dir_layout.addWidget(self.audio_storage_dir)
+
+        self.browse_audio_button = QPushButton("Browse...")
+        self.browse_audio_button.clicked.connect(self._browse_audio_storage_dir)
+        audio_dir_layout.addWidget(self.browse_audio_button)
+        audio_storage_layout.addRow("Directory:", audio_dir_layout)
+
+        # Audio format
+        self.audio_format_combo = QComboBox()
+        self.audio_format_combo.addItem("WAV", "wav")
+        self.audio_format_combo.addItem("MP3 (Future)", "mp3")
+        self.audio_format_combo.addItem("FLAC (Future)", "flac")
+        self.audio_format_combo.setEnabled(False)  # Only WAV supported for now
+        audio_storage_layout.addRow("Format:", self.audio_format_combo)
+
+        # Retention settings
+        self.retention_days = QSpinBox()
+        self.retention_days.setRange(1, 365)
+        self.retention_days.setValue(30)
+        self.retention_days.setSuffix(" days")
+        audio_storage_layout.addRow("Retention:", self.retention_days)
+
+        # Max files
+        self.max_files = QSpinBox()
+        self.max_files.setRange(10, 10000)
+        self.max_files.setValue(1000)
+        self.max_files.setSuffix(" files")
+        audio_storage_layout.addRow("Max Files:", self.max_files)
+
+        content_layout.addWidget(audio_storage_group)
+
         # Transcript logging section
-        from PySide6.QtWidgets import QGroupBox, QLineEdit, QPushButton, QHBoxLayout
         transcript_group = QGroupBox("Transcript Logging")
-        transcript_layout = QFormLayout()
-        
+        transcript_layout = QFormLayout(transcript_group)
+
         # Enable transcript logging checkbox
         self.transcript_enabled_checkbox = QCheckBox("Save transcripts to disk")
         transcript_layout.addRow(self.transcript_enabled_checkbox)
-        
+
         # Transcript directory
-        dir_layout = QHBoxLayout()
+        transcript_dir_layout = QHBoxLayout()
         self.transcript_dir_edit = QLineEdit()
         self.transcript_dir_edit.setPlaceholderText("transcripts")
-        dir_layout.addWidget(self.transcript_dir_edit)
-        
-        self.browse_button = QPushButton("Browse...")
-        self.browse_button.clicked.connect(self._browse_transcript_dir)
-        dir_layout.addWidget(self.browse_button)
-        transcript_layout.addRow("Directory:", dir_layout)
-        
+        transcript_dir_layout.addWidget(self.transcript_dir_edit)
+
+        self.browse_transcript_button = QPushButton("Browse...")
+        self.browse_transcript_button.clicked.connect(self._browse_transcript_dir)
+        transcript_dir_layout.addWidget(self.browse_transcript_button)
+        transcript_layout.addRow("Directory:", transcript_dir_layout)
+
         # Transcript format
         self.transcript_format_combo = QComboBox()
         self.transcript_format_combo.addItem("Plain Text", "text")
         self.transcript_format_combo.addItem("JSON", "json")
         transcript_layout.addRow("Format:", self.transcript_format_combo)
-        
-        transcript_group.setLayout(transcript_layout)
-        layout.addWidget(transcript_group)
 
-        layout.addLayout(form_layout)
+        content_layout.addWidget(transcript_group)
+
+        # Debug section
+        debug_group = QGroupBox("Debug Settings")
+        debug_layout = QFormLayout(debug_group)
+
+        # Save debug audio files
+        self.debug_audio_checkbox = QCheckBox("Save debug audio files")
+        self.debug_audio_checkbox.setToolTip(
+            "Save audio files for debugging transcription issues"
+        )
+        debug_layout.addRow(self.debug_audio_checkbox)
+
+        # Debug audio directory
+        debug_dir_layout = QHBoxLayout()
+        self.debug_audio_dir = QLineEdit()
+        self.debug_audio_dir.setPlaceholderText("debug_audio")
+        debug_dir_layout.addWidget(self.debug_audio_dir)
+
+        self.browse_debug_button = QPushButton("Browse...")
+        self.browse_debug_button.clicked.connect(self._browse_debug_audio_dir)
+        debug_dir_layout.addWidget(self.browse_debug_button)
+        debug_layout.addRow("Debug Directory:", debug_dir_layout)
+
+        content_layout.addWidget(debug_group)
+
+        # Set content in scroll area
+        scroll_area.setWidget(content_widget)
+        layout.addWidget(scroll_area)
 
         # Buttons
         button_box = QDialogButtonBox(
@@ -177,37 +271,194 @@ class SettingsDialog(QDialog):
         button_box.button(QDialogButtonBox.Apply).clicked.connect(self._apply_settings)
 
         layout.addWidget(button_box)
-    
+
+        # Apply dark theme styling
+        self._apply_dark_theme()
+
+        # Connect signals for enabling/disabling related controls
+        self.audio_storage_enabled.toggled.connect(self._on_audio_storage_toggled)
+        self.transcript_enabled_checkbox.toggled.connect(
+            self._on_transcript_logging_toggled
+        )
+        self.debug_audio_checkbox.toggled.connect(self._on_debug_audio_toggled)
+
+    def _apply_dark_theme(self):
+        """Apply dark theme to match the main application."""
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1E1E1E;
+                color: #EAEAEA;
+            }
+            
+            QLabel {
+                color: #EAEAEA;
+            }
+            
+            QComboBox {
+                background-color: #2A2A2A;
+                color: #EAEAEA;
+                border: 1px solid #3A3A3A;
+                padding: 5px;
+                border-radius: 4px;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+            }
+            
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #8E8E93;
+                margin-right: 5px;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #2A2A2A;
+                color: #EAEAEA;
+                selection-background-color: #007AFF;
+            }
+            
+            QPushButton {
+                background-color: #2A2A2A;
+                color: #EAEAEA;
+                border: 1px solid #3A3A3A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            
+            QPushButton:hover {
+                background-color: #3A3A3A;
+            }
+            
+            QPushButton:pressed {
+                background-color: #1A1A1A;
+            }
+            
+            QCheckBox {
+                color: #EAEAEA;
+                spacing: 8px;
+            }
+            
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 1px solid #3A3A3A;
+                border-radius: 3px;
+                background-color: #2A2A2A;
+            }
+            
+            QCheckBox::indicator:checked {
+                background-color: #007AFF;
+                border-color: #007AFF;
+            }
+            
+            QCheckBox::indicator:checked:disabled {
+                background-color: #8E8E93;
+                border-color: #8E8E93;
+            }
+            
+            QLineEdit {
+                background-color: #2A2A2A;
+                color: #EAEAEA;
+                border: 1px solid #3A3A3A;
+                padding: 5px;
+                border-radius: 4px;
+            }
+            
+            QLineEdit:focus {
+                border-color: #007AFF;
+            }
+            
+            QGroupBox {
+                color: #EAEAEA;
+                border: 1px solid #3A3A3A;
+                border-radius: 4px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px 0 8px;
+                color: #007AFF;
+                font-weight: bold;
+            }
+        """)
+
+    def _browse_audio_storage_dir(self):
+        """Browse for audio storage directory."""
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Select Audio Storage Directory", self.audio_storage_dir.text() or "."
+        )
+        if dir_path:
+            self.audio_storage_dir.setText(dir_path)
+
     def _browse_transcript_dir(self):
         """Browse for transcript directory."""
-        from PySide6.QtWidgets import QFileDialog
         dir_path = QFileDialog.getExistingDirectory(
-            self, 
-            "Select Transcript Directory",
-            self.transcript_dir_edit.text() or "."
+            self, "Select Transcript Directory", self.transcript_dir_edit.text() or "."
         )
         if dir_path:
             self.transcript_dir_edit.setText(dir_path)
+
+    def _browse_debug_audio_dir(self):
+        """Browse for debug audio directory."""
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Select Debug Audio Directory", self.debug_audio_dir.text() or "."
+        )
+        if dir_path:
+            self.debug_audio_dir.setText(dir_path)
+
+    def _on_audio_storage_toggled(self, enabled: bool):
+        """Handle audio storage checkbox toggle."""
+        self.audio_storage_dir.setEnabled(enabled)
+        self.browse_audio_button.setEnabled(enabled)
+        self.audio_format_combo.setEnabled(False)  # Keep disabled for now
+        self.retention_days.setEnabled(enabled)
+        self.max_files.setEnabled(enabled)
+
+    def _on_transcript_logging_toggled(self, enabled: bool):
+        """Handle transcript logging checkbox toggle."""
+        self.transcript_dir_edit.setEnabled(enabled)
+        self.browse_transcript_button.setEnabled(enabled)
+        self.transcript_format_combo.setEnabled(enabled)
+
+    def _on_debug_audio_toggled(self, enabled: bool):
+        """Handle debug audio checkbox toggle."""
+        self.debug_audio_dir.setEnabled(enabled)
+        self.browse_debug_button.setEnabled(enabled)
 
     def _populate_audio_devices(self):
         """Populate the audio device combo box with available devices."""
         # Add default device option
         self.audio_device_combo.addItem("Default Device", None)
-        
+
         # Get available audio input devices
         try:
             audio_recorder = AudioRecorder()
             devices = audio_recorder.get_devices()
-            
+
             for device in devices:
                 device_name = device.get("name", "Unknown Device")
                 device_index = device.get("index", 0)
                 # Add device to combo box with index as data
                 self.audio_device_combo.addItem(device_name, device_index)
-                
+
             logger.info(f"Found {len(devices)} audio input devices")
         except Exception as e:
             logger.error(f"Failed to get audio devices: {e}")
+
+    @Slot()
+    def _on_device_changed(self):
+        """Handle device selection change to provide real-time feedback."""
+        device_index = self.audio_device_combo.currentData()
+        device_name = self.audio_device_combo.currentText()
+        logger.info(
+            f"Audio device selection changed to: [{device_index}] {device_name}"
+        )
 
     def _load_current_settings(self):
         """Load current settings into the dialog."""
@@ -235,22 +486,52 @@ class SettingsDialog(QDialog):
         index = self.injection_method_combo.findData(current_method)
         if index >= 0:
             self.injection_method_combo.setCurrentIndex(index)
-        
+
         # Auto-paste preference
         auto_paste = config.get("text.auto_paste", True)  # Default to True
         self.auto_paste_checkbox.setChecked(auto_paste)
-        
+
+        # Audio storage settings
+        audio_storage_enabled = config.get("audio_storage.enabled", False)
+        self.audio_storage_enabled.setChecked(audio_storage_enabled)
+
+        audio_storage_dir = config.get("audio_storage.directory", "audio_recordings")
+        self.audio_storage_dir.setText(audio_storage_dir)
+
+        audio_format = config.get("audio_storage.format", "wav")
+        index = self.audio_format_combo.findData(audio_format)
+        if index >= 0:
+            self.audio_format_combo.setCurrentIndex(index)
+
+        retention_days = config.get("audio_storage.retention_days", 30)
+        self.retention_days.setValue(retention_days)
+
+        max_files = config.get("audio_storage.max_files", 1000)
+        self.max_files.setValue(max_files)
+
         # Transcript logging settings
         transcript_enabled = config.get("transcripts.enabled", False)
         self.transcript_enabled_checkbox.setChecked(transcript_enabled)
-        
+
         transcript_dir = config.get("transcripts.directory", "transcripts")
         self.transcript_dir_edit.setText(transcript_dir)
-        
+
         transcript_format = config.get("transcripts.format", "text")
         index = self.transcript_format_combo.findData(transcript_format)
         if index >= 0:
             self.transcript_format_combo.setCurrentIndex(index)
+
+        # Debug settings
+        debug_audio = config.get("debug.save_audio_files", False)
+        self.debug_audio_checkbox.setChecked(debug_audio)
+
+        debug_dir = config.get("debug.audio_debug_dir", "debug_audio")
+        self.debug_audio_dir.setText(debug_dir)
+
+        # Initialize control states
+        self._on_audio_storage_toggled(audio_storage_enabled)
+        self._on_transcript_logging_toggled(transcript_enabled)
+        self._on_debug_audio_toggled(debug_audio)
 
     def _apply_settings(self):
         """Apply settings without closing dialog."""
@@ -268,9 +549,22 @@ class SettingsDialog(QDialog):
         new_device = self.audio_device_combo.currentData()
         new_method = self.injection_method_combo.currentData()
         auto_paste = self.auto_paste_checkbox.isChecked()
+
+        # Audio storage settings
+        audio_storage_enabled = self.audio_storage_enabled.isChecked()
+        audio_storage_dir = self.audio_storage_dir.text() or "audio_recordings"
+        audio_format = self.audio_format_combo.currentData()
+        retention_days = self.retention_days.value()
+        max_files = self.max_files.value()
+
+        # Transcript settings
         transcript_enabled = self.transcript_enabled_checkbox.isChecked()
         transcript_dir = self.transcript_dir_edit.text() or "transcripts"
         transcript_format = self.transcript_format_combo.currentData()
+
+        # Debug settings
+        debug_audio = self.debug_audio_checkbox.isChecked()
+        debug_dir = self.debug_audio_dir.text() or "debug_audio"
 
         logger.info("Would save settings:")
         logger.info(f"  Hotkey: {new_hotkey}")
@@ -278,25 +572,57 @@ class SettingsDialog(QDialog):
         logger.info(f"  Audio Device: {new_device}")
         logger.info(f"  Injection Method: {new_method}")
         logger.info(f"  Auto-paste: {auto_paste}")
+        logger.info(f"  Audio storage: {audio_storage_enabled}")
+        logger.info(f"  Audio storage directory: {audio_storage_dir}")
+        logger.info(f"  Audio format: {audio_format}")
+        logger.info(f"  Retention days: {retention_days}")
+        logger.info(f"  Max files: {max_files}")
         logger.info(f"  Transcript logging: {transcript_enabled}")
         logger.info(f"  Transcript directory: {transcript_dir}")
         logger.info(f"  Transcript format: {transcript_format}")
+        logger.info(f"  Debug audio: {debug_audio}")
+        logger.info(f"  Debug directory: {debug_dir}")
 
         # TODO: Implement actual config file writing
         # For now, just update the in-memory config
         config.config["hotkey"]["combination"] = new_hotkey
         config.config["logging"]["level"] = new_log_level
-        if new_device:
+
+        # Update audio device
+        if new_device is not None:
             config.config["audio"]["device"] = new_device
+        else:
+            config.config["audio"]["device"] = None
+
+        # Apply device change immediately if audio recorder is available
+        if self.audio_recorder:
+            self.audio_recorder.update_device(new_device)
+            logger.info(f"Applied audio device change to: {new_device}")
+
         config.config["text"]["method"] = new_method
         config.config["text"]["auto_paste"] = auto_paste
-        
+
+        # Audio storage settings
+        if "audio_storage" not in config.config:
+            config.config["audio_storage"] = {}
+        config.config["audio_storage"]["enabled"] = audio_storage_enabled
+        config.config["audio_storage"]["directory"] = audio_storage_dir
+        config.config["audio_storage"]["format"] = audio_format
+        config.config["audio_storage"]["retention_days"] = retention_days
+        config.config["audio_storage"]["max_files"] = max_files
+
         # Transcript settings
         if "transcripts" not in config.config:
             config.config["transcripts"] = {}
         config.config["transcripts"]["enabled"] = transcript_enabled
         config.config["transcripts"]["directory"] = transcript_dir
         config.config["transcripts"]["format"] = transcript_format
+
+        # Debug settings
+        if "debug" not in config.config:
+            config.config["debug"] = {}
+        config.config["debug"]["save_audio_files"] = debug_audio
+        config.config["debug"]["audio_debug_dir"] = debug_dir
 
     def accept(self):
         """Accept dialog and save settings."""

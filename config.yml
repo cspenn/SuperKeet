@@ -13,10 +13,11 @@ logging:
   
 # Audio settings
 audio:
-  sample_rate: 16000
+  sample_rate: 16000  # Optimal for Parakeet ASR (was 48000)
   channels: 1
   chunk_size: 1024
-  device: null  # null for default device
+  device: null  # null for default device - auto-optimized based on capabilities
+  gain: 2.0  # Audio gain multiplier (1.0 = no gain, 2.0 = double volume)
   
 # ASR settings
 asr:
@@ -44,3 +45,16 @@ transcripts:
   enabled: false  # Save transcripts to disk
   directory: "transcripts"  # Directory to save transcripts
   format: "text"  # "text" or "json"
+
+# Debug settings
+debug:
+  save_audio_files: true  # Save WAV files for debugging
+  audio_debug_dir: "debug_audio"  # Directory for debug audio files
+
+# Audio storage settings
+audio_storage:
+  enabled: false
+  directory: "audio_recordings"
+  format: "wav"  # wav, mp3, flac
+  retention_days: 30
+  max_files: 1000

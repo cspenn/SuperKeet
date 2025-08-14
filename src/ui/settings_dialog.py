@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -444,8 +445,10 @@ class SettingsDialog(QDialog):
             for device in devices:
                 device_name = device.get("name", "Unknown Device")
                 device_index = device.get("index", 0)
-                # Add device to combo box with index as data
-                self.audio_device_combo.addItem(device_name, device_index)
+                device_channels = device.get("channels", 1)
+                # Add device to combo box with input channel info
+                display_name = f"{device_name} ({device_channels} input)"
+                self.audio_device_combo.addItem(display_name, device_index)
 
             logger.info(f"Found {len(devices)} audio input devices")
         except Exception as e:
@@ -588,9 +591,26 @@ class SettingsDialog(QDialog):
         config.config["hotkey"]["combination"] = new_hotkey
         config.config["logging"]["level"] = new_log_level
 
-        # Update audio device
+        # Update audio device with validation
         if new_device is not None:
-            config.config["audio"]["device"] = new_device
+            try:
+                import sounddevice as sd
+                device_info = sd.query_devices(new_device)
+                if device_info["max_input_channels"] == 0:
+                    logger.error(f"Device {new_device} ({device_info['name']}) does not support input")
+                    self._show_error_message("Invalid Device Selection", 
+                                           f"The selected device '{device_info['name']}' is an output-only device.\n"
+                                           "Please select a device that supports audio input (microphone).")
+                    return
+                logger.info(f"Validated device {new_device}: {device_info['name']} ({device_info['max_input_channels']} input channels)")
+                config.config["audio"]["device"] = new_device
+            except Exception as e:
+                logger.error(f"Invalid device {new_device}: {e}")
+                self._show_error_message("Invalid Device Selection", 
+                                       f"The selected device (index {new_device}) is not available.\n"
+                                       f"Error: {str(e)}\n\n"
+                                       "Please select a different audio input device.")
+                return
         else:
             config.config["audio"]["device"] = None
 
@@ -623,6 +643,20 @@ class SettingsDialog(QDialog):
             config.config["debug"] = {}
         config.config["debug"]["save_audio_files"] = debug_audio
         config.config["debug"]["audio_debug_dir"] = debug_dir
+
+    def _show_error_message(self, title: str, message: str) -> None:
+        """Show an error message dialog to the user.
+        
+        Args:
+            title: Dialog title
+            message: Error message to display
+        """
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
 
     def accept(self):
         """Accept dialog and save settings."""

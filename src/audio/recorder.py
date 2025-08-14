@@ -40,6 +40,9 @@ class AudioRecorder(QObject):
         self.device = config.get("audio.device", None)
         self.gain = config.get("audio.gain", 1.0)
         
+        # Validate configured device supports input and fallback if needed
+        self._validate_and_fix_device_configuration()
+        
         # Parakeet ASR native sample rate - our optimization target
         self.parakeet_native_rate = 16000
         
@@ -135,8 +138,38 @@ class AudioRecorder(QObject):
             logger.info("Started recording")
 
         except Exception as e:
-            logger.error(f"Failed to start recording: {e}")
-            raise
+            # Enhanced error recovery - try fallback approaches
+            logger.error(f"Failed to start recording with device {self.device}: {e}")
+            
+            # If we were using a specific device, try falling back to default
+            if self.device is not None:
+                logger.warning(f"Attempting fallback to default device...")
+                try:
+                    self.stream = sd.InputStream(
+                        device=None,  # Use default device
+                        channels=self.channels,
+                        samplerate=self.sample_rate,
+                        blocksize=self.chunk_size,
+                        callback=self._audio_callback,
+                        dtype=np.float32,
+                    )
+                    self.stream.start()
+                    self.recording = True
+                    logger.info("🟢 Successfully started recording with default device (fallback)")
+                    
+                    # Update our device setting to reflect the successful fallback
+                    original_device = self.device
+                    self.device = None
+                    logger.warning(f"🟡 Device {original_device} failed, now using default device")
+                    return
+                    
+                except Exception as e2:
+                    logger.error(f"Default device fallback also failed: {e2}")
+                    raise e2
+            else:
+                # We were already using default device and it failed
+                logger.error("Default device failed - no fallback available")
+                raise e
 
     def stop(self) -> np.ndarray:
         """Stop recording and return the captured audio.
@@ -487,6 +520,35 @@ class AudioRecorder(QObject):
 
         except Exception as e:
             logger.error(f"Sample rate validation failed: {e}")
+
+    def _validate_and_fix_device_configuration(self) -> None:
+        """Validate configured device supports input and fix if needed."""
+        if self.device is None:
+            logger.debug("Using default device (no validation needed)")
+            return
+            
+        try:
+            # Check if configured device exists and supports input
+            device_info = sd.query_devices(self.device)
+            
+            if device_info["max_input_channels"] == 0:
+                logger.warning(
+                    f"🟡 Configured device {self.device} ('{device_info['name']}') is output-only, "
+                    "falling back to default device"
+                )
+                self.device = None
+            else:
+                logger.info(
+                    f"🟢 Validated device {self.device}: '{device_info['name']}' "
+                    f"({device_info['max_input_channels']} input channels)"
+                )
+                
+        except Exception as e:
+            logger.warning(
+                f"🟡 Configured device {self.device} is invalid ({e}), "
+                "falling back to default device"
+            )
+            self.device = None
 
     def validate_audio_data(self, audio_data: np.ndarray) -> bool:
         """Validate audio data quality before processing.

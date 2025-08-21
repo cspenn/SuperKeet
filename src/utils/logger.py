@@ -6,8 +6,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from src.config.config_loader import config
-
 
 class EmojiFormatter(logging.Formatter):
     """Custom formatter that adds emoji indicators to log messages."""
@@ -56,12 +54,24 @@ def setup_logger(name: str) -> logging.Logger:
     if logger.handlers:
         return logger
 
-    # Get configuration
-    log_level = config.get("logging.level", "INFO")
-    log_format = config.get(
-        "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    log_dir = Path(config.get("logging.directory", "logs"))
+    # Get configuration dynamically to avoid circular imports
+    try:
+        from src.config.config_loader import config
+    except ImportError:
+        config = None
+
+    # Get configuration with fallbacks
+    if config:
+        log_level = config.get("logging.level", "INFO")
+        log_format = config.get(
+            "logging.format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        log_dir = Path(config.get("logging.directory", "logs"))
+    else:
+        # Fallback defaults if config is not available
+        log_level = "INFO"
+        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        log_dir = Path("logs")
 
     # Set level
     logger.setLevel(getattr(logging, log_level.upper()))

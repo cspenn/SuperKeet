@@ -33,11 +33,19 @@ logger = setup_logger(__name__)
 class HotkeyEdit(QWidget):
     """Custom widget for editing hotkey combinations."""
 
-    hotkey_changed = Signal(list)
+    hotkey_changed = Signal(str)
 
-    def __init__(self, initial_hotkey: List[str]):
+    def __init__(self, initial_hotkey):
         super().__init__()
-        self.hotkey_combo = initial_hotkey.copy()
+        
+        # Handle both string and list formats
+        if isinstance(initial_hotkey, str):
+            # Parse string format like "ctrl+space"
+            self.hotkey_combo = initial_hotkey.split("+")
+        else:
+            # Handle legacy list format
+            self.hotkey_combo = initial_hotkey.copy() if hasattr(initial_hotkey, 'copy') else list(initial_hotkey)
+        
         self._setup_ui()
 
     def _setup_ui(self):
@@ -83,11 +91,11 @@ class HotkeyEdit(QWidget):
 
         self.hotkey_combo = combinations[next_index]
         self.hotkey_label.setText(self._format_hotkey())
-        self.hotkey_changed.emit(self.hotkey_combo)
+        self.hotkey_changed.emit("+".join(self.hotkey_combo))
 
-    def get_hotkey(self) -> List[str]:
-        """Get current hotkey combination."""
-        return self.hotkey_combo.copy()
+    def get_hotkey(self) -> str:
+        """Get current hotkey combination as string format."""
+        return "+".join(self.hotkey_combo)
 
 
 class SettingsDialog(QDialog):
@@ -130,7 +138,7 @@ class SettingsDialog(QDialog):
 
         # Hotkey setting
         self.hotkey_edit = HotkeyEdit(
-            config.get("hotkey.combination", ["ctrl", "space"])
+            config.get("hotkey.combination", "ctrl+space")
         )
         basic_layout.addRow("Hotkey:", self.hotkey_edit)
 
@@ -586,67 +594,84 @@ class SettingsDialog(QDialog):
         logger.info(f"  Debug audio: {debug_audio}")
         logger.info(f"  Debug directory: {debug_dir}")
 
-        # TODO: Implement actual config file writing
-        # For now, just update the in-memory config
-        config.config["hotkey"]["combination"] = new_hotkey
-        config.config["logging"]["level"] = new_log_level
+        # Implement actual config file writing with validation and backup
+        try:
+            # Update configuration values
+            config.set("hotkey.combination", new_hotkey)
+            config.set("logging.level", new_log_level)
+            config.set("text.method", new_method)
+            config.set("text.auto_paste", auto_paste)
 
-        # Update audio device with validation
-        if new_device is not None:
-            try:
+            # Audio storage settings
+            config.set("audio_storage.enabled", audio_storage_enabled)
+            config.set("audio_storage.directory", audio_storage_dir)
+            config.set("audio_storage.format", audio_format)
+            config.set("audio_storage.retention_days", retention_days)
+            config.set("audio_storage.max_files", max_files)
+
+            # Transcript settings
+            config.set("transcripts.enabled", transcript_enabled)
+            config.set("transcripts.directory", transcript_dir)
+            config.set("transcripts.format", transcript_format)
+
+            # Debug settings
+            config.set("debug.save_audio_files", debug_audio)
+            config.set("debug.audio_debug_dir", debug_dir)
+
+            # Save audio device with validation (preserve existing validation logic)
+            if new_device is not None:
                 import sounddevice as sd
+
                 device_info = sd.query_devices(new_device)
                 if device_info["max_input_channels"] == 0:
-                    logger.error(f"Device {new_device} ({device_info['name']}) does not support input")
-                    self._show_error_message("Invalid Device Selection", 
-                                           f"The selected device '{device_info['name']}' is an output-only device.\n"
-                                           "Please select a device that supports audio input (microphone).")
+                    logger.error(
+                        f"🛑 Device {new_device} ({device_info['name']}) does not support input"
+                    )
+                    self._show_error_message(
+                        "Invalid Device Selection",
+                        f"The selected device '{device_info['name']}' is an output-only device.\n"
+                        "Please select a device that supports audio input (microphone).",
+                    )
                     return
-                logger.info(f"Validated device {new_device}: {device_info['name']} ({device_info['max_input_channels']} input channels)")
-                config.config["audio"]["device"] = new_device
-            except Exception as e:
-                logger.error(f"Invalid device {new_device}: {e}")
-                self._show_error_message("Invalid Device Selection", 
-                                       f"The selected device (index {new_device}) is not available.\n"
-                                       f"Error: {str(e)}\n\n"
-                                       "Please select a different audio input device.")
-                return
-        else:
-            config.config["audio"]["device"] = None
+                logger.info(
+                    f"✅ Validated device {new_device}: {device_info['name']} ({device_info['max_input_channels']} input channels)"
+                )
+                config.set("audio.device", new_device)
+            else:
+                config.set("audio.device", None)
 
-        # Apply device change immediately if audio recorder is available
-        if self.audio_recorder:
-            self.audio_recorder.update_device(new_device)
-            logger.info(f"Applied audio device change to: {new_device}")
+            # Apply device change immediately if audio recorder is available
+            if self.audio_recorder:
+                self.audio_recorder.update_device(new_device)
+                logger.info(f"🔧 Applied audio device change to: {new_device}")
 
-        config.config["text"]["method"] = new_method
-        config.config["text"]["auto_paste"] = auto_paste
+            # Save configuration to disk with backup and validation
+            config.save()
+            logger.info("💾 Configuration saved successfully")
 
-        # Audio storage settings
-        if "audio_storage" not in config.config:
-            config.config["audio_storage"] = {}
-        config.config["audio_storage"]["enabled"] = audio_storage_enabled
-        config.config["audio_storage"]["directory"] = audio_storage_dir
-        config.config["audio_storage"]["format"] = audio_format
-        config.config["audio_storage"]["retention_days"] = retention_days
-        config.config["audio_storage"]["max_files"] = max_files
+            # Show success message to user
+            from PySide6.QtWidgets import QMessageBox
 
-        # Transcript settings
-        if "transcripts" not in config.config:
-            config.config["transcripts"] = {}
-        config.config["transcripts"]["enabled"] = transcript_enabled
-        config.config["transcripts"]["directory"] = transcript_dir
-        config.config["transcripts"]["format"] = transcript_format
+            QMessageBox.information(
+                self,
+                "Settings Saved",
+                "Your settings have been saved successfully and will persist between sessions.",
+            )
 
-        # Debug settings
-        if "debug" not in config.config:
-            config.config["debug"] = {}
-        config.config["debug"]["save_audio_files"] = debug_audio
-        config.config["debug"]["audio_debug_dir"] = debug_dir
+            self.accept()
+
+        except Exception as e:
+            logger.error(f"🛑 Failed to save settings: {e}")
+            self._show_error_message(
+                "Configuration Error",
+                f"Failed to save settings to configuration file:\n{str(e)}\n\n"
+                "Your settings have not been saved. Please check file permissions and try again.",
+            )
+            return
 
     def _show_error_message(self, title: str, message: str) -> None:
         """Show an error message dialog to the user.
-        
+
         Args:
             title: Dialog title
             message: Error message to display

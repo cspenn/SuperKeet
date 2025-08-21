@@ -26,11 +26,20 @@ class HotkeyListener:
     def __init__(self) -> None:
         """Initialize the hotkey listener."""
         self.signals = HotkeySignals()
-        self.hotkey_combo = config.get("hotkey.combination", ["cmd", "shift", "space"])
+        
+        # Get hotkey combination - handle both string and list formats
+        hotkey_config = config.get("hotkey.combination", "cmd+shift+space")
+        if isinstance(hotkey_config, str):
+            # Parse string format like "ctrl+space"
+            self.hotkey_combo = hotkey_config.split("+")
+        else:
+            # Handle legacy list format
+            self.hotkey_combo = hotkey_config
 
         # Convert string keys to pynput keys
         self.required_keys: Set[keyboard.Key | keyboard.KeyCode] = set()
         for key in self.hotkey_combo:
+            key = key.strip().lower()  # Normalize key names
             if key == "cmd":
                 self.required_keys.add(keyboard.Key.cmd)
             elif key == "ctrl":

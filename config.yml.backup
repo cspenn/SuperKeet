@@ -4,43 +4,36 @@
 app:
   name: "SuperKeet"
   version: "0.1.0"
-
+  
 # Logging configuration
-  first_run_completed: true
 logging:
   level: "DEBUG"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   directory: "logs"
-
-# Audio settings with memory management
+  
+# Audio settings
 audio:
   sample_rate: 16000  # Optimal for Parakeet ASR (was 48000)
   channels: 1
   chunk_size: 1024
-  device:       # null for default device - auto-optimized based on capabilities
+  device: null  # null for default device - auto-optimized based on capabilities
   gain: 2.0  # Audio gain multiplier (1.0 = no gain, 2.0 = double volume)
-  # Memory management settings
-  max_recording_duration: 300  # Maximum recording duration in seconds (5 minutes)
-  buffer_size_limit: 100  # Maximum audio buffer size in MB
-  enable_buffer_monitoring: true  # Enable audio buffer monitoring
-
-# ASR settings with Parakeet v3 and memory management
+  
+# ASR settings
 asr:
-  model_id: "mlx-community/parakeet-tdt-0.6b-v3"  # Updated to Parakeet v3 (multilingual)
+  model_id: "mlx-community/parakeet-tdt-0.6b-v2"
   device: "mps"  # Metal Performance Shaders for Apple Silicon
-  auto_unload_timeout: 300  # Auto-unload model after 5 minutes of inactivity
-  max_audio_duration: 1440.0  # Maximum audio duration (24 minutes - model limit)
-  enable_chunked_processing: true  # Enable chunked processing for large files
-  chunk_duration: 60.0  # Duration of each processing chunk in seconds
+  
 # Hotkey settings
 hotkey:
-  combination: "ctrl+space"
+  combination: ["ctrl", "space"]
+  
 # UI settings
 ui:
   icon_idle: "🎙"
   icon_recording: "🔴"
   icon_processing: "⚙️"
-
+  
 # Text injection settings
 text:
   method: "clipboard"  # "clipboard" or "accessibility"
@@ -68,5 +61,3 @@ audio_storage:
   format: "wav"  # wav, mp3, flac
   retention_days: 30
   max_files: 1000
-api_keys:
-  example_service: your-api-key-here

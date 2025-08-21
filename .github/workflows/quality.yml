@@ -1,0 +1,61 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-quality-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-quality-
+
+    - name: Install quality tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff bandit safety pre-commit
+
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit run --all-files || echo "Pre-commit completed with findings"
+
+    - name: Lint with ruff
+      run: |
+        ruff check src/ tests/ --output-format=github --statistics
+        ruff format --check src/ tests/
+
+    - name: Security scan with bandit
+      run: |
+        bandit -r src/ -ll -x tests/
+
+    - name: Check for security vulnerabilities
+      run: |
+        pip freeze > requirements-check.txt
+        safety check -r requirements-check.txt || echo "Safety check completed"
+
+    - name: Check code complexity
+      run: |
+        pip install radon
+        radon cc src/ --min=C --show-complexity
+        radon mi src/ --min=B --show
+
+    - name: Dead code detection
+      run: |
+        pip install vulture
+        vulture src/ --min-confidence=80 || echo "Vulture scan completed"

@@ -5,12 +5,12 @@ import signal
 import sys
 from pathlib import Path
 
+from src.ui.tray_app import SuperKeetApp
+from src.utils.logger import setup_logger
+
 # Add project root to path for absolute imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
-from src.ui.tray_app import SuperKeetApp
-from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -24,8 +24,9 @@ def signal_handler(sig, frame):
     if app_instance:
         try:
             app_instance.cleanup()
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"🛑 Error during application cleanup: {e}")
+            # Continue with shutdown even if cleanup fails
     sys.exit(0)
 
 
@@ -50,8 +51,9 @@ def main() -> None:
         if app_instance:
             try:
                 app_instance.cleanup()
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"🛑 Error during application cleanup: {e}")
+                # Continue with shutdown even if cleanup fails
         sys.exit(0)
     except Exception as e:
         logger.error(f"Fatal error: {e}")

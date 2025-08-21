@@ -14,6 +14,7 @@ from src.asr.transcriber import ASRTranscriber
 from src.audio.recorder import AudioRecorder
 from src.hotkey.listener import HotkeyListener
 from src.text.injector import TextInjector
+from src.ui.first_run_dialog import FirstRunDialog
 from src.ui.main_window import MainWindow
 from src.ui.settings_dialog import SettingsDialog
 from src.utils.logger import setup_logger
@@ -110,6 +111,9 @@ class SuperKeetApp:
         self._setup_dock()
         self._connect_signals()
 
+        # Check for first-run experience
+        self._check_first_run()
+
         logger.info("SuperKeetApp initialized")
 
     def _create_icon(self) -> None:
@@ -133,7 +137,10 @@ class SuperKeetApp:
         # Ensure dock icon is visible and properly named
         self.app.setApplicationDisplayName("SuperKeet")
         self.app.setApplicationName("SuperKeet")
-
+        
+        # Set the dock icon to use the same parakeet icon
+        self.app.setWindowIcon(self.icon)
+        
         # Create dock menu with same functionality as tray menu
         self._setup_dock_menu()
 
@@ -237,6 +244,44 @@ class SuperKeetApp:
 
         # Connect dock activation signal
         self.app.applicationStateChanged.connect(self._on_application_state_changed)
+
+    def _check_first_run(self) -> None:
+        """Check if this is first run and show setup dialog if needed."""
+        from src.config.config_loader import config
+
+        try:
+            # Check if first run has been completed
+            first_run_completed = config.get("app.first_run_completed", False)
+
+            if not first_run_completed:
+                logger.info("🎯 First run detected - showing setup wizard")
+
+                # Create and show first-run dialog
+                first_run_dialog = FirstRunDialog()
+                first_run_dialog.setup_completed.connect(self._on_first_run_completed)
+
+                # Show dialog modally
+                first_run_dialog.exec()
+            else:
+                logger.info("✅ First run already completed")
+
+        except Exception as e:
+            logger.error(f"🛑 Error checking first-run state: {e}")
+            # Continue with normal startup even if first-run check fails
+
+    @Slot()
+    def _on_first_run_completed(self) -> None:
+        """Handle first-run setup completion."""
+        logger.info("🎉 First-run setup completed successfully")
+
+        # Show welcome notification
+        if self.tray_icon.supportsMessages():
+            self.tray_icon.showMessage(
+                "SuperKeet Setup Complete",
+                "Welcome to SuperKeet! Press Ctrl+Space to start voice transcription.",
+                QSystemTrayIcon.MessageIcon.Information,
+                4000,
+            )
 
     def _update_icon(self) -> None:
         """Update tray icon based on current state."""
@@ -356,17 +401,52 @@ class SuperKeetApp:
             self._cleanup_worker()
 
     def _cleanup_worker(self) -> None:
-        """Clean up ASR worker thread safely."""
+        """Clean up ASR worker thread safely with timeout and forced cleanup."""
+        if not self.asr_worker:
+            return
+            
         try:
-            if self.asr_worker:
-                self.asr_worker.quit()
-                self.asr_worker.wait()
-                self.asr_worker = None
-                logger.debug("ASR worker cleaned up successfully")
-        except Exception as e:
-            logger.warning(f"🟡 Error cleaning up ASR worker: {e}")
-            # Force cleanup even if quit/wait fails
+            logger.debug("🧹 Cleaning up ASR worker thread...")
+            
+            # First, try to signal the thread to quit gracefully
+            self.asr_worker.quit()
+            
+            # Wait for thread to finish, but with a timeout
+            if self.asr_worker.wait(5000):  # 5 second timeout
+                logger.debug("✅ ASR worker terminated gracefully")
+            else:
+                logger.warning("⚠️ ASR worker didn't terminate gracefully, forcing cleanup")
+                
+                # Try to terminate the thread forcefully
+                try:
+                    self.asr_worker.terminate()
+                    if self.asr_worker.wait(2000):  # 2 second timeout for termination
+                        logger.debug("✅ ASR worker terminated forcefully")
+                    else:
+                        logger.error("❌ ASR worker failed to terminate")
+                except Exception as term_error:
+                    logger.error(f"❌ Error terminating ASR worker: {term_error}")
+            
+            # Disconnect signals to prevent memory leaks
+            try:
+                self.asr_worker.transcription_complete.disconnect()
+                self.asr_worker.error_occurred.disconnect()
+                logger.debug("✅ ASR worker signals disconnected")
+            except Exception as disconnect_error:
+                logger.debug(f"Signal disconnect warning: {disconnect_error}")
+            
+            # Set to None regardless of termination success
             self.asr_worker = None
+            logger.debug("✅ ASR worker reference cleared")
+            
+        except Exception as e:
+            logger.error(f"❌ Error during ASR worker cleanup: {e}")
+            # Force cleanup even if everything fails
+            self.asr_worker = None
+            
+        # Force garbage collection after thread cleanup
+        import gc
+        gc.collect()
 
     @Slot(str)
     def _on_transcription_error(self, error: str) -> None:
@@ -500,6 +580,7 @@ class SuperKeetApp:
         """Run the application."""
         try:
             # Check if model needs downloading
+            logger.info("🔍 Checking model cache status...")
             if not self.asr_transcriber._is_model_cached():
                 if self.tray_icon.supportsMessages():
                     self.tray_icon.showMessage(
@@ -509,33 +590,110 @@ class SuperKeetApp:
                         5000,
                     )
 
-            # Load ASR model
-            logger.info("Loading ASR model...")
+            # Load ASR model with progress feedback
+            logger.info("🔄 Loading ASR model...")
+
+            # Show loading notification
+            if self.tray_icon.supportsMessages():
+                if not self.asr_transcriber._is_model_cached():
+                    self.tray_icon.showMessage(
+                        "SuperKeet",
+                        "Loading ASR model for the first time...",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        3000,
+                    )
+                else:
+                    self.tray_icon.showMessage(
+                        "SuperKeet",
+                        "Loading ASR model from cache...",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000,
+                    )
+
+            # Load the model (now with tqdm progress indicators)
             self.asr_transcriber.load_model()
+            logger.info("✅ ASR model loaded successfully")
+
+            # Show completion notification
+            if self.tray_icon.supportsMessages():
+                self.tray_icon.showMessage(
+                    "SuperKeet",
+                    "ASR model loaded successfully! Ready for voice transcription.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000,
+                )
 
             # Start hotkey listener
+            logger.info("🎹 Starting hotkey listener...")
             self.hotkey_listener.start()
+            logger.info("✅ Hotkey listener started successfully")
 
             # Run event loop
-            logger.info("Starting application")
-            self.app.exec()
+            logger.info("🚀 Starting Qt application event loop...")
+            exit_code = self.app.exec()
+            logger.info(f"📋 Application event loop exited with code: {exit_code}")
+            return exit_code
 
+        except KeyboardInterrupt:
+            logger.info("⛔ Application interrupted by user")
+            self.cleanup()
+            return 0
         except Exception as e:
-            logger.error(f"Application error: {e}")
+            logger.error(f"🛑 Application error: {e}")
+            logger.error(f"🛑 Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"🛑 Stack trace: {traceback.format_exc()}")
+            self.cleanup()
             raise
 
     def cleanup(self) -> None:
-        """Clean up resources."""
-        logger.info("Cleaning up...")
+        """Clean up resources with comprehensive memory management."""
+        logger.info("🧹 Starting application cleanup...")
+
+        # Clean up ASR worker thread first
+        self._cleanup_worker()
 
         # Stop hotkey listener
-        self.hotkey_listener.stop()
+        try:
+            self.hotkey_listener.stop()
+            logger.debug("✅ Hotkey listener stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ Error stopping hotkey listener: {e}")
 
-        # Unload model
-        self.asr_transcriber.unload_model()
+        # Stop audio recorder if it's running
+        try:
+            if hasattr(self.audio_recorder, 'recording') and self.audio_recorder.recording:
+                self.audio_recorder.stop()
+            # Clear audio buffers
+            if hasattr(self.audio_recorder, 'clear_audio_buffers'):
+                self.audio_recorder.clear_audio_buffers()
+            logger.debug("✅ Audio recorder cleaned up")
+        except Exception as e:
+            logger.warning(f"⚠️ Error stopping audio recorder: {e}")
+
+        # Clean up ASR transcriber (includes model unloading and timer cleanup)
+        try:
+            if hasattr(self.asr_transcriber, 'cleanup'):
+                self.asr_transcriber.cleanup()
+            else:
+                self.asr_transcriber.unload_model()
+            logger.debug("✅ ASR transcriber cleaned up")
+        except Exception as e:
+            logger.warning(f"⚠️ Error cleaning up ASR transcriber: {e}")
 
         # Hide tray icon
-        self.tray_icon.setVisible(False)
+        try:
+            self.tray_icon.setVisible(False)
+            logger.debug("✅ Tray icon hidden")
+        except Exception as e:
+            logger.warning(f"⚠️ Error hiding tray icon: {e}")
+
+        # Force garbage collection
+        import gc
+        collected = gc.collect()
+        logger.info(f"🗑️ Garbage collection: {collected} objects collected")
+        
+        logger.info("✅ Application cleanup completed")
 
 
 # end src/ui/tray_app.py

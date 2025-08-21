@@ -1,12 +1,15 @@
 # start src/ui/audio_animation_widget.py
 """Audio animation widget for SuperKeet - smooth visual feedback during recording."""
 
+import logging
 import math
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
+
+logger = logging.getLogger(__name__)
 
 
 class AudioAnimationWidget(QWidget):
@@ -177,6 +180,22 @@ class AudioAnimationWidget(QWidget):
                     int(dot_radius * 2),
                     int(dot_radius * 2),
                 )
+
+    def cleanup_timers(self) -> None:
+        """Clean up animation timer to prevent memory leaks."""
+        if hasattr(self, 'animation_timer') and self.animation_timer is not None:
+            try:
+                self.animation_timer.stop()
+                self.animation_timer.deleteLater()
+                self.animation_timer = None
+                logger.debug("✅ Audio animation timer cleaned up")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cleaning up animation timer: {e}")
+
+    def closeEvent(self, event):
+        """Handle widget close with timer cleanup."""
+        self.cleanup_timers()
+        super().closeEvent(event)
 
 
 # end src/ui/audio_animation_widget.py

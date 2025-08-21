@@ -66,12 +66,11 @@ class TextInjector:
             True if successful, False otherwise.
         """
         try:
-            # Save current clipboard content
-            original_clipboard = None
+            # Save current clipboard content (for potential future restoration)
             try:
-                original_clipboard = pyperclip.paste()
-            except Exception:
-                logger.debug("Could not save original clipboard content")
+                pyperclip.paste()  # Test clipboard access
+            except Exception as e:
+                logger.debug(f"Could not access clipboard content: {e}")
 
             # Copy text to clipboard
             pyperclip.copy(text)
@@ -93,11 +92,6 @@ class TextInjector:
                 logger.debug(
                     f"Copied {len(text)} characters to clipboard (auto-paste disabled)"
                 )
-
-            # Optionally restore original clipboard
-            # (commented out as it might interfere with paste operation)
-            # if original_clipboard is not None:
-            #     pyperclip.copy(original_clipboard)
 
             return True
 

@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
 from src.config.config_loader import config
 
 from .audio_animation_widget import AudioAnimationWidget
+from .batch_progress_dialog import BatchProgressDialog
+from .drop_zone_widget import DropZoneWidget
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("● SuperKeet")
-        self.setFixedSize(600, 500)
+        self.setFixedSize(600, 600)
 
         # State tracking - Initialize before setup_ui
         self._current_state = "idle"
@@ -56,19 +58,25 @@ class MainWindow(QMainWindow):
 
         logger.info("🟢 MainWindow initialized")
 
-    def _format_hotkey_display(self, hotkey_combo: list) -> str:
+    def _format_hotkey_display(self, hotkey_combo) -> str:
         """Format hotkey combination for display.
 
         Args:
-            hotkey_combo: List of key names.
+            hotkey_combo: Hotkey combination (string or list format).
 
         Returns:
             Formatted hotkey string for display.
         """
         key_map = {"cmd": "⌘", "ctrl": "⌃", "alt": "⌥", "shift": "⇧", "space": "Space"}
 
+        # Handle both string and list formats
+        if isinstance(hotkey_combo, str):
+            keys = hotkey_combo.split("+")
+        else:
+            keys = hotkey_combo
+
         formatted = []
-        for key in hotkey_combo:
+        for key in keys:
             formatted.append(key_map.get(key, key.upper()))
 
         return "+".join(formatted)
@@ -122,8 +130,20 @@ class MainWindow(QMainWindow):
         separator2.setFixedHeight(1)
         main_layout.addWidget(separator2)
 
+        # Drop zone for batch processing
+        self.drop_zone = DropZoneWidget()
+        self.drop_zone.setMinimumHeight(80)
+        self.drop_zone.files_dropped.connect(self._on_files_dropped)
+        main_layout.addWidget(self.drop_zone)
+
+        # Separator
+        separator3 = QFrame()
+        separator3.setFrameShape(QFrame.HLine)
+        separator3.setFixedHeight(1)
+        main_layout.addWidget(separator3)
+
         # Hint text - use current hotkey configuration
-        hotkey_combo = config.get("hotkey.combination", ["ctrl", "space"])
+        hotkey_combo = config.get("hotkey.combination", "ctrl+space")
         hotkey_display = self._format_hotkey_display(hotkey_combo)
         self.hint_label = QLabel(
             f"Hold [{hotkey_display}] to speak. Release to transcribe."
@@ -332,6 +352,27 @@ class MainWindow(QMainWindow):
         color = f"rgba(0, 122, 255, {opacity})"
         self.status_dot.setStyleSheet(f"color: {color};")
 
+    def _start_processing_animation(self):
+        """Start processing animation with animated dots."""
+        if not hasattr(self, "_processing_timer"):
+            self._processing_timer = QTimer()
+            self._processing_timer.timeout.connect(self._animate_processing_dots)
+            self._processing_dots_count = 0
+
+        self._processing_timer.start(500)  # Update every 500ms
+
+    def _animate_processing_dots(self):
+        """Animate processing dots."""
+        if self._current_state != "processing":
+            if hasattr(self, "_processing_timer"):
+                self._processing_timer.stop()
+            return
+
+        # Cycle through 0-3 dots
+        self._processing_dots_count = (self._processing_dots_count + 1) % 4
+        dots = "." * self._processing_dots_count
+        self.hint_label.setText(f"Processing transcription{dots}")
+
     @Slot(str)
     def update_state(self, state: str):
         """Update the UI state."""
@@ -350,12 +391,14 @@ class MainWindow(QMainWindow):
             self._status_dot_timer.stop()
 
             if self._current_state == "processing":
-                self.hint_label.setText("Processing...")
+                self.hint_label.setText("Processing transcription...")
                 self.audio_animation.stop_recording()
+                # Add visual feedback with animated dots
+                self._start_processing_animation()
             elif self._current_state == "idle":
                 # Don't immediately reset hint text if we just copied to clipboard
                 if not self._clipboard_timer.isActive():
-                    hotkey_combo = config.get("hotkey.combination", ["ctrl", "space"])
+                    hotkey_combo = config.get("hotkey.combination", "ctrl+space")
                     hotkey_display = self._format_hotkey_display(hotkey_combo)
                     self.hint_label.setText(
                         f"Hold [{hotkey_display}] to speak. Release to transcribe."
@@ -374,7 +417,7 @@ class MainWindow(QMainWindow):
     def _reset_hint_text(self):
         """Reset hint text to default."""
         if self._current_state == "idle":
-            hotkey_combo = config.get("hotkey.combination", ["ctrl", "space"])
+            hotkey_combo = config.get("hotkey.combination", "ctrl+space")
             hotkey_display = self._format_hotkey_display(hotkey_combo)
             self.hint_label.setText(
                 f"Hold [{hotkey_display}] to speak. Release to transcribe."
@@ -412,6 +455,93 @@ class MainWindow(QMainWindow):
 
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
+
+    def _on_files_dropped(self, file_paths):
+        """Handle files dropped on the drop zone.
+
+        Args:
+            file_paths: List of Path objects representing dropped files
+        """
+        if not file_paths:
+            logger.warning("🟡 No valid files dropped")
+            return
+
+        logger.info(f"📁 Starting batch transcription for {len(file_paths)} files")
+
+        # Create and show progress dialog
+        progress_dialog = BatchProgressDialog(file_paths, self)
+        progress_dialog.batch_cancelled.connect(self._on_batch_cancelled)
+
+        # Start processing
+        progress_dialog.start_processing()
+
+        # Show the dialog
+        result = progress_dialog.exec()
+
+        if result == progress_dialog.DialogCode.Accepted:
+            logger.info("🏁 Batch transcription completed")
+        else:
+            logger.info("🛑 Batch transcription cancelled")
+
+        # Reset drop zone state
+        self.drop_zone.reset_state()
+
+    def _on_batch_cancelled(self):
+        """Handle batch processing cancellation."""
+        logger.info("🛑 Batch processing cancelled by user")
+        self.drop_zone.reset_state()
+
+    def cleanup_timers(self) -> None:
+        """Clean up all QTimer instances to prevent memory leaks."""
+        logger.debug("🧹 Cleaning up MainWindow timers")
+        
+        # Stop and clean up status dot timer
+        if hasattr(self, '_status_dot_timer') and self._status_dot_timer is not None:
+            try:
+                self._status_dot_timer.stop()
+                self._status_dot_timer.deleteLater()
+                self._status_dot_timer = None
+                logger.debug("✅ Status dot timer cleaned up")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cleaning up status dot timer: {e}")
+        
+        # Stop and clean up clipboard timer
+        if hasattr(self, '_clipboard_timer') and self._clipboard_timer is not None:
+            try:
+                self._clipboard_timer.stop()
+                self._clipboard_timer.deleteLater()
+                self._clipboard_timer = None
+                logger.debug("✅ Clipboard timer cleaned up")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cleaning up clipboard timer: {e}")
+        
+        # Stop and clean up processing timer
+        if hasattr(self, '_processing_timer') and self._processing_timer is not None:
+            try:
+                self._processing_timer.stop()
+                self._processing_timer.deleteLater()
+                self._processing_timer = None
+                logger.debug("✅ Processing timer cleaned up")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cleaning up processing timer: {e}")
+        
+        # Clean up audio animation widget timers
+        if hasattr(self, 'audio_animation') and self.audio_animation is not None:
+            try:
+                if hasattr(self.audio_animation, 'cleanup_timers'):
+                    self.audio_animation.cleanup_timers()
+                logger.debug("✅ Audio animation timers cleaned up")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cleaning up audio animation: {e}")
+
+    def closeEvent(self, event):
+        """Handle window close event with proper cleanup."""
+        # Clean up timers before closing
+        self.cleanup_timers()
+        
+        # Don't quit the app, just hide the window
+        event.ignore()
+        self.hide()
 
 
 # end src/ui/main_window.py

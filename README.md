@@ -62,10 +62,7 @@ Edit `config.yml` to customize:
 
 ## Development
 
-Run quality checks:
-```bash
-./checkpython.sh
-```
+Absolutely no support of any kind is included. If this application lights your computer on fire, it's not my fault. If this application crashes your computer, it's not my fault. If this application deletes all of your data on your computer, it's not my fault. Use at your own risk and audit the code first before installing software from some rando on the internet.
 
 ## System Requirements
 

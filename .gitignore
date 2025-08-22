@@ -23,6 +23,8 @@ dist/
 credentials.yml
 logs/
 *.log
+debug_audio/
+temp_batch/
 
 # macOS
 .DS_Store

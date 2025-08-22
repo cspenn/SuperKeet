@@ -82,8 +82,8 @@ Run quality checks:
 
 ## Model Information
 
-SuperKeet uses the Parakeet-TDT-0.6b-v2 model from Hugging Face:
-- Model ID: `mlx-community/parakeet-tdt-0.6b-v2`
+SuperKeet uses the Parakeet-TDT-0.6b-v3 model from Hugging Face:
+- Model ID: `mlx-community/parakeet-tdt-0.6b-v3`
 - Size: ~600MB
 - Language: English only
 - Performance: Up to 60x real-time on Apple Silicon

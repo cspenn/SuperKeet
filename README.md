@@ -28,12 +28,7 @@ SuperKeet is a FOSS voice-to-text application for macOS using the Parakeet-MLX A
    cp credentials.yml.dist credentials.yml
    ```
 
-4. Make the check script executable:
-   ```bash
-   chmod +x checkpython.sh
-   ```
-
-5. Download the ASR model (optional - will auto-download on first use):
+4. Download the ASR model (optional - will auto-download on first use):
    ```bash
    poetry run python download_model.py
    ```

@@ -487,7 +487,7 @@ class BatchProgressDialog(QDialog):
                 background-color: #1E1E1E;
                 color: #EAEAEA;
             }
-            
+
             QGroupBox {
                 font-weight: bold;
                 border: 1px solid #3A3A3A;
@@ -495,29 +495,29 @@ class BatchProgressDialog(QDialog):
                 margin-top: 1ex;
                 padding: 10px;
             }
-            
+
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
             }
-            
+
             QLabel {
                 color: #EAEAEA;
             }
-            
+
             QProgressBar {
                 border: 1px solid #3A3A3A;
                 border-radius: 4px;
                 background-color: #2A2A2A;
                 text-align: center;
             }
-            
+
             QProgressBar::chunk {
                 background-color: #007AFF;
                 border-radius: 3px;
             }
-            
+
             QPushButton {
                 background-color: #2A2A2A;
                 border: 1px solid #3A3A3A;
@@ -525,32 +525,32 @@ class BatchProgressDialog(QDialog):
                 padding: 6px 12px;
                 color: #EAEAEA;
             }
-            
+
             QPushButton:hover {
                 background-color: #3A3A3A;
             }
-            
+
             QTextEdit {
                 background-color: #2A2A2A;
                 border: 1px solid #3A3A3A;
                 border-radius: 4px;
                 color: #EAEAEA;
             }
-            
+
             QFrame {
                 background-color: #2A2A2A;
                 border: 1px solid #3A3A3A;
                 border-radius: 4px;
                 margin: 2px;
             }
-            
+
             QScrollArea {
                 background-color: transparent;
                 border: none;
             }
         """)
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event) -> None:  # noqa: N802
         """Handle close event."""
         if self.is_running:
             self.cancel_processing()

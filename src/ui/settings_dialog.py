@@ -1,8 +1,6 @@
 # start src/ui/settings_dialog.py
 """Settings dialog for SuperKeet."""
 
-from typing import List
-
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -37,15 +35,19 @@ class HotkeyEdit(QWidget):
 
     def __init__(self, initial_hotkey):
         super().__init__()
-        
+
         # Handle both string and list formats
         if isinstance(initial_hotkey, str):
             # Parse string format like "ctrl+space"
             self.hotkey_combo = initial_hotkey.split("+")
         else:
             # Handle legacy list format
-            self.hotkey_combo = initial_hotkey.copy() if hasattr(initial_hotkey, 'copy') else list(initial_hotkey)
-        
+            self.hotkey_combo = (
+                initial_hotkey.copy()
+                if hasattr(initial_hotkey, "copy")
+                else list(initial_hotkey)
+            )
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -55,7 +57,7 @@ class HotkeyEdit(QWidget):
 
         self.hotkey_label = QLabel(self._format_hotkey())
         self.hotkey_label.setStyleSheet(
-            "border: 1px solid #3A3A3A; padding: 8px; background: #2A2A2A; color: #EAEAEA; border-radius: 4px; font-weight: bold;"
+            "border: 1px solid #3A3A3A; padding: 8px; background: #2A2A2A; color: #EAEAEA; border-radius: 4px; font-weight: bold;"  # noqa: E501
         )
         layout.addWidget(self.hotkey_label)
 
@@ -137,9 +139,7 @@ class SettingsDialog(QDialog):
         basic_layout = QFormLayout(basic_group)
 
         # Hotkey setting
-        self.hotkey_edit = HotkeyEdit(
-            config.get("hotkey.combination", "ctrl+space")
-        )
+        self.hotkey_edit = HotkeyEdit(config.get("hotkey.combination", "ctrl+space"))
         basic_layout.addRow("Hotkey:", self.hotkey_edit)
 
         # Audio device setting
@@ -298,11 +298,11 @@ class SettingsDialog(QDialog):
                 background-color: #1E1E1E;
                 color: #EAEAEA;
             }
-            
+
             QLabel {
                 color: #EAEAEA;
             }
-            
+
             QComboBox {
                 background-color: #2A2A2A;
                 color: #EAEAEA;
@@ -310,11 +310,11 @@ class SettingsDialog(QDialog):
                 padding: 5px;
                 border-radius: 4px;
             }
-            
+
             QComboBox::drop-down {
                 border: none;
             }
-            
+
             QComboBox::down-arrow {
                 image: none;
                 border-left: 5px solid transparent;
@@ -322,13 +322,13 @@ class SettingsDialog(QDialog):
                 border-top: 5px solid #8E8E93;
                 margin-right: 5px;
             }
-            
+
             QComboBox QAbstractItemView {
                 background-color: #2A2A2A;
                 color: #EAEAEA;
                 selection-background-color: #007AFF;
             }
-            
+
             QPushButton {
                 background-color: #2A2A2A;
                 color: #EAEAEA;
@@ -336,20 +336,20 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
                 padding: 6px 12px;
             }
-            
+
             QPushButton:hover {
                 background-color: #3A3A3A;
             }
-            
+
             QPushButton:pressed {
                 background-color: #1A1A1A;
             }
-            
+
             QCheckBox {
                 color: #EAEAEA;
                 spacing: 8px;
             }
-            
+
             QCheckBox::indicator {
                 width: 16px;
                 height: 16px;
@@ -357,17 +357,17 @@ class SettingsDialog(QDialog):
                 border-radius: 3px;
                 background-color: #2A2A2A;
             }
-            
+
             QCheckBox::indicator:checked {
                 background-color: #007AFF;
                 border-color: #007AFF;
             }
-            
+
             QCheckBox::indicator:checked:disabled {
                 background-color: #8E8E93;
                 border-color: #8E8E93;
             }
-            
+
             QLineEdit {
                 background-color: #2A2A2A;
                 color: #EAEAEA;
@@ -375,11 +375,11 @@ class SettingsDialog(QDialog):
                 padding: 5px;
                 border-radius: 4px;
             }
-            
+
             QLineEdit:focus {
                 border-color: #007AFF;
             }
-            
+
             QGroupBox {
                 color: #EAEAEA;
                 border: 1px solid #3A3A3A;
@@ -387,7 +387,7 @@ class SettingsDialog(QDialog):
                 margin-top: 10px;
                 padding-top: 10px;
             }
-            
+
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
@@ -625,16 +625,16 @@ class SettingsDialog(QDialog):
                 device_info = sd.query_devices(new_device)
                 if device_info["max_input_channels"] == 0:
                     logger.error(
-                        f"🛑 Device {new_device} ({device_info['name']}) does not support input"
+                        f"🛑 Device {new_device} ({device_info['name']}) does not support input"  # noqa: E501
                     )
                     self._show_error_message(
                         "Invalid Device Selection",
-                        f"The selected device '{device_info['name']}' is an output-only device.\n"
-                        "Please select a device that supports audio input (microphone).",
+                        f"The selected device '{device_info['name']}' is an output-only device.\n"  # noqa: E501
+                        "Please select a device that supports audio input (microphone).",  # noqa: E501
                     )
                     return
                 logger.info(
-                    f"✅ Validated device {new_device}: {device_info['name']} ({device_info['max_input_channels']} input channels)"
+                    f"✅ Validated device {new_device}: {device_info['name']} ({device_info['max_input_channels']} input channels)"  # noqa: E501
                 )
                 config.set("audio.device", new_device)
             else:
@@ -655,7 +655,7 @@ class SettingsDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Settings Saved",
-                "Your settings have been saved successfully and will persist between sessions.",
+                "Your settings have been saved successfully and will persist between sessions.",  # noqa: E501
             )
 
             self.accept()
@@ -665,7 +665,7 @@ class SettingsDialog(QDialog):
             self._show_error_message(
                 "Configuration Error",
                 f"Failed to save settings to configuration file:\n{str(e)}\n\n"
-                "Your settings have not been saved. Please check file permissions and try again.",
+                "Your settings have not been saved. Please check file permissions and try again.",  # noqa: E501
             )
             return
 

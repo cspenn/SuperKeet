@@ -17,7 +17,8 @@ logger = setup_logger(__name__)
 
 
 class ASRTranscriber:
-    """Handles speech-to-text transcription using Parakeet-MLX with memory management."""
+    """Handles speech-to-text transcription using Parakeet-MLX with memory
+    management."""
 
     def __init__(self) -> None:
         """Initialize the ASR transcriber."""
@@ -28,9 +29,11 @@ class ASRTranscriber:
         # Get expected sample rate from audio recorder configuration
         self.expected_sample_rate = config.get("audio.sample_rate", 16000)
         self.parakeet_native_rate = 16000  # Parakeet's native expected rate
-        
+
         # Memory management settings
-        self.auto_unload_timeout = config.get("asr.auto_unload_timeout", 300)  # 5 minutes
+        self.auto_unload_timeout = config.get(
+            "asr.auto_unload_timeout", 300
+        )  # 5 minutes
         self.last_used_time = 0
         self._memory_monitor_timer = None
 
@@ -43,7 +46,7 @@ class ASRTranscriber:
 
         # Report resampling strategy
         self._report_resampling_strategy()
-        
+
         # Start memory monitoring if auto-unload is enabled
         if self.auto_unload_timeout > 0:
             self._start_memory_monitor()
@@ -52,7 +55,7 @@ class ASRTranscriber:
         """Start memory monitoring timer for auto-unloading."""
         try:
             from PySide6.QtCore import QTimer
-            
+
             if self._memory_monitor_timer is None:
                 self._memory_monitor_timer = QTimer()
                 self._memory_monitor_timer.timeout.connect(self._check_auto_unload)
@@ -65,14 +68,19 @@ class ASRTranscriber:
         """Check if model should be auto-unloaded due to inactivity."""
         if self.model is not None and self.auto_unload_timeout > 0:
             import time
+
             current_time = time.time()
             if current_time - self.last_used_time > self.auto_unload_timeout:
-                logger.info(f"Auto-unloading ASR model after {self.auto_unload_timeout}s of inactivity")
+                logger.info(
+                    f"Auto-unloading ASR model after "
+                    f"{self.auto_unload_timeout}s of inactivity"
+                )
                 self.unload_model()
 
     def _update_last_used(self) -> None:
         """Update the last used timestamp."""
         import time
+
         self.last_used_time = time.time()
 
     def _get_cache_dir(self) -> Path:
@@ -108,23 +116,24 @@ class ASRTranscriber:
 
     def get_memory_usage(self) -> dict:
         """Get current memory usage information.
-        
+
         Returns:
             Dictionary with memory usage stats.
         """
-        import psutil
         import gc
-        
+
+        import psutil
+
         process = psutil.Process()
         memory_info = process.memory_info()
-        
+
         return {
             "model_loaded": self.model is not None,
             "rss_mb": memory_info.rss / 1024 / 1024,
             "vms_mb": memory_info.vms / 1024 / 1024,
             "last_used": self.last_used_time,
             "auto_unload_timeout": self.auto_unload_timeout,
-            "garbage_collected_objects": len(gc.get_objects())
+            "garbage_collected_objects": len(gc.get_objects()),
         }
 
     def load_model(self) -> None:
@@ -135,15 +144,15 @@ class ASRTranscriber:
             return
 
         try:
+            import gc
             import threading
             import time
-            import gc
 
             from tqdm import tqdm
 
             # Force garbage collection before loading large model
             gc.collect()
-            
+
             # Check if model is cached
             is_cached = self._is_model_cached()
 
@@ -228,10 +237,12 @@ class ASRTranscriber:
 
             # Update usage timestamp
             self._update_last_used()
-            
+
             # Log memory usage after loading
             memory_stats = self.get_memory_usage()
-            logger.info(f"Model loaded - Memory usage: {memory_stats['rss_mb']:.1f}MB RSS")
+            logger.info(
+                f"Model loaded - Memory usage: {memory_stats['rss_mb']:.1f}MB RSS"
+            )
 
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
@@ -284,7 +295,8 @@ class ASRTranscriber:
             elif actual_rate != self.parakeet_native_rate:
                 # Resample to Parakeet native rate
                 logger.debug(
-                    f"🟡 Resampling audio from {actual_rate}Hz to {self.parakeet_native_rate}Hz"
+                    f"🟡 Resampling audio from {actual_rate}Hz to "
+                    f"{self.parakeet_native_rate}Hz"
                 )
                 audio_data = self._resample_audio(
                     audio_data, actual_rate, self.parakeet_native_rate
@@ -348,31 +360,34 @@ class ASRTranscriber:
         # Check for silence (very low RMS)
         if rms < 0.001:
             logger.warning(
-                f"🟡 ASR validation warning: Very low RMS {rms:.6f} - possible silence or wrong microphone"
+                f"🟡 ASR validation warning: Very low RMS {rms:.6f} - "
+                f"possible silence or wrong microphone"
             )
 
         # Check for clipping
         clipped_samples = np.sum(np.abs(audio_data) > 0.99)
         if clipped_samples > len(audio_data) * 0.01:  # More than 1% clipped
             logger.warning(
-                f"🟡 ASR validation warning: Audio clipping detected in {clipped_samples} samples ({clipped_samples / len(audio_data) * 100:.1f}%)"
+                f"🟡 ASR validation warning: Audio clipping detected in "
+                f"{clipped_samples} samples "
+                f"({clipped_samples / len(audio_data) * 100:.1f}%)"
             )
 
         # Log audio quality metrics for ASR
         logger.debug(
-            f"🟢 ASR audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"
+            f"🟢 ASR audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"  # noqa: E501
         )
 
     def _report_resampling_strategy(self) -> None:
         """Report the resampling strategy for this ASR configuration."""
         if self.expected_sample_rate == self.parakeet_native_rate:
             logger.info(
-                f"🟢 OPTIMAL: Expected input matches Parakeet native rate ({self.parakeet_native_rate}Hz)"
+                f"🟢 OPTIMAL: Expected input matches Parakeet native rate ({self.parakeet_native_rate}Hz)"  # noqa: E501
             )
             logger.info("🟢 No resampling overhead - maximum performance and quality")
         else:
             logger.info(
-                f"🟡 Expected input: {self.expected_sample_rate}Hz, will resample to {self.parakeet_native_rate}Hz"
+                f"🟡 Expected input: {self.expected_sample_rate}Hz, will resample to {self.parakeet_native_rate}Hz"  # noqa: E501
             )
             logger.info("🟡 Single resampling operation - good performance")
 
@@ -401,7 +416,7 @@ class ASRTranscriber:
                 new_length = int(len(audio_data) * target_rate / input_rate)
                 resampled = resample(audio_data, new_length)
                 logger.debug(
-                    f"HQ resample: {len(audio_data)} samples @ {input_rate}Hz → {len(resampled)} samples @ {target_rate}Hz"
+                    f"HQ resample: {len(audio_data)} samples @ {input_rate}Hz → {len(resampled)} samples @ {target_rate}Hz"  # noqa: E501
                 )
                 return resampled.astype(np.float32)
             except ImportError:
@@ -420,7 +435,7 @@ class ASRTranscriber:
         except Exception as e:
             logger.error(f"Resampling failed: {e}")
             logger.warning(
-                "Using original audio without resampling - may cause transcription errors"
+                "Using original audio without resampling - may cause transcription errors"  # noqa: E501
             )
             return audio_data
 
@@ -428,19 +443,19 @@ class ASRTranscriber:
         """Unload the model from memory with garbage collection."""
         if self.model is not None:
             import gc
-            
+
             # Log memory before unloading
             memory_before = self.get_memory_usage()
-            
+
             self.model = None
-            
+
             # Force garbage collection
             gc.collect()
-            
+
             # Log memory after unloading
             memory_after = self.get_memory_usage()
-            memory_freed = memory_before['rss_mb'] - memory_after['rss_mb']
-            
+            memory_freed = memory_before["rss_mb"] - memory_after["rss_mb"]
+
             logger.info(f"Model unloaded - Memory freed: {memory_freed:.1f}MB")
 
     def cleanup(self) -> None:
@@ -449,7 +464,7 @@ class ASRTranscriber:
             self._memory_monitor_timer.stop()
             self._memory_monitor_timer = None
             logger.debug("Memory monitor timer stopped")
-        
+
         self.unload_model()
 
 

@@ -353,7 +353,7 @@ class FirstRunDialog(QDialog):
             (
                 "🎯",
                 "System Integration",
-                "Works with any application - transcriptions appear where you need them",
+                "Works with any application - transcriptions appear where you need them",  # noqa: E501
             ),
         ]
 
@@ -429,7 +429,7 @@ class FirstRunDialog(QDialog):
             "• Speak clearly into your microphone\n"
             "• Release Ctrl+Space to transcribe\n"
             "• The text will appear where your cursor is\n\n"
-            "You can also drag audio/video files to the main window for batch transcription.\n\n"
+            "You can also drag audio/video files to the main window for batch transcription.\n\n"  # noqa: E501
             "Enjoy using SuperKeet!"
         )
         summary.setWordWrap(True)
@@ -476,7 +476,7 @@ class FirstRunDialog(QDialog):
 
         if device_index is None:
             self.device_info_label.setText(
-                "Default device will be used. macOS will automatically select the system default microphone."
+                "Default device will be used. macOS will automatically select the system default microphone."  # noqa: E501
             )
         else:
             try:
@@ -498,7 +498,7 @@ class FirstRunDialog(QDialog):
                         f"Quality: {rating}\n"
                         f"Channels: {channels}\n"
                         f"Sample Rate: {sample_rate}Hz\n\n"
-                        f"This device will be optimized for SuperKeet's 16kHz ASR model."
+                        f"This device will be optimized for SuperKeet's 16kHz ASR model."  # noqa: E501
                     )
                     self.device_info_label.setText(info_text)
 
@@ -590,12 +590,12 @@ class FirstRunDialog(QDialog):
             msg = QMessageBox()
             msg.setWindowTitle("Accessibility Permission Required")
             msg.setText(
-                "SuperKeet needs accessibility permission to inject transcribed text into other applications.\n\n"
+                "SuperKeet needs accessibility permission to inject transcribed text into other applications.\n\n"  # noqa: E501
                 "Please:\n"
                 "1. Find 'SuperKeet' in the list\n"
                 "2. Check the box next to it\n"
                 "3. Click 'Done' and return to this setup\n\n"
-                "If SuperKeet is not in the list, you may need to add it manually by clicking the '+' button."
+                "If SuperKeet is not in the list, you may need to add it manually by clicking the '+' button."  # noqa: E501
             )
             msg.setIcon(QMessageBox.Information)
             msg.exec()
@@ -691,11 +691,11 @@ class FirstRunDialog(QDialog):
                 background-color: #1E1E1E;
                 color: #EAEAEA;
             }
-            
+
             QLabel {
                 color: #EAEAEA;
             }
-            
+
             QPushButton {
                 background-color: #2A2A2A;
                 border: 1px solid #3A3A3A;
@@ -704,17 +704,17 @@ class FirstRunDialog(QDialog):
                 color: #EAEAEA;
                 font-weight: bold;
             }
-            
+
             QPushButton:hover {
                 background-color: #3A3A3A;
             }
-            
+
             QPushButton:disabled {
                 background-color: #1A1A1A;
                 color: #5A5A5A;
                 border-color: #2A2A2A;
             }
-            
+
             QComboBox {
                 background-color: #2A2A2A;
                 border: 1px solid #3A3A3A;
@@ -722,11 +722,11 @@ class FirstRunDialog(QDialog):
                 padding: 6px;
                 color: #EAEAEA;
             }
-            
+
             QComboBox::drop-down {
                 border: none;
             }
-            
+
             QComboBox::down-arrow {
                 image: none;
                 border-left: 5px solid transparent;

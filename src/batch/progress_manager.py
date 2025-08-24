@@ -142,7 +142,7 @@ class ProgressManager(QObject):
         }
 
         logger.info(
-            f"📊 Batch complete: {summary['successful_files']}/{summary['total_files']} successful "
+            f"📊 Batch complete: {summary['successful_files']}/{summary['total_files']} successful "  # noqa: E501
             f"({summary['success_rate']:.1f}%) in {summary['total_time_formatted']}"
         )
 

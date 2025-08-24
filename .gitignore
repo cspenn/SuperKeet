@@ -18,6 +18,10 @@ dist/
 .idea/
 *.swp
 *.swo
+.serena/
+.claude/
+*cache*
+.serena/*
 
 # Application
 credentials.yml
@@ -25,6 +29,8 @@ logs/
 *.log
 debug_audio/
 temp_batch/
+*.command
+*.sh
 
 # macOS
 .DS_Store

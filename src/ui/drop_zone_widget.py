@@ -66,19 +66,19 @@ class DropZoneWidget(QWidget):
                 border-radius: 8px;
                 min-height: 120px;
             }
-            
+
             DropZoneWidget[drag_active="true"] {
                 border-color: #007AFF;
                 background-color: #1A1A2E;
             }
-            
+
             QLabel {
                 color: #EAEAEA;
                 font-size: 14px;
                 background: transparent;
                 border: none;
             }
-            
+
             QLabel#formats_label {
                 color: #8E8E93;
                 font-size: 12px;
@@ -88,7 +88,7 @@ class DropZoneWidget(QWidget):
         # Set object names for styling
         self.formats_label.setObjectName("formats_label")
 
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
         """Handle drag enter event."""
         if self._has_supported_files(event):
             event.acceptProposedAction()
@@ -100,21 +100,21 @@ class DropZoneWidget(QWidget):
             event.ignore()
             logger.debug("🟡 Drag enter: no supported files")
 
-    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802
         """Handle drag move event."""
         if self._has_supported_files(event):
             event.acceptProposedAction()
         else:
             event.ignore()
 
-    def dragLeaveEvent(self, event) -> None:
+    def dragLeaveEvent(self, event) -> None:  # noqa: N802
         """Handle drag leave event."""
         self.setProperty("drag_active", False)
         self.style().polish(self)  # Refresh styling
         self.drop_label.setText("Drop audio/video files here")
         logger.debug("🎯 Drag leave")
 
-    def dropEvent(self, event: QDropEvent) -> None:
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
         """Handle drop event."""
         file_paths = self._extract_file_paths(event)
 
@@ -212,7 +212,7 @@ class DropZoneWidget(QWidget):
         else:
             self.drop_label.setText(f"⚠️ {success_count}/{total_count} files completed")
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event) -> None:  # noqa: N802
         """Custom paint event for visual feedback."""
         super().paintEvent(event)
 

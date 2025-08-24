@@ -54,7 +54,7 @@ class FileProcessor:
             if file_size_gb > self.max_file_size_gb:
                 return (
                     False,
-                    f"File too large: {file_size_gb:.2f}GB > {self.max_file_size_gb}GB limit",
+                    f"File too large: {file_size_gb:.2f}GB > {self.max_file_size_gb}GB limit",  # noqa: E501
                 )
 
             # Check file format by extension
@@ -128,7 +128,7 @@ class FileProcessor:
             logger.warning(f"🟡 Large batch: {total_size_gb:.2f}GB total")
 
         logger.info(
-            f"📊 Batch validation: {len(valid_files)} valid, {len(invalid_files)} invalid"
+            f"📊 Batch validation: {len(valid_files)} valid, {len(invalid_files)} invalid"  # noqa: E501
         )
         return valid_files, invalid_files
 
@@ -189,7 +189,7 @@ class FileProcessor:
                 "is_video": file_path.suffix.lower().lstrip(".") in ["mp4", "mov"],
             }
 
-            # Add estimated processing time (rough estimate: 1GB = 10 minutes processing)
+            # Add estimated processing time (rough estimate: 1GB = 10 minutes processing)  # noqa: E501
             info["estimated_processing_minutes"] = max(1, int(info["size_gb"] * 10))
 
             return info

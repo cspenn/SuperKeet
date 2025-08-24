@@ -32,9 +32,15 @@ class AudioRecorder(QObject):
         self.gain = config.get("audio.gain", 1.0)
 
         # Memory management settings for audio buffers
-        self.max_recording_duration = config.get("audio.max_recording_duration", 300)  # 5 minutes max
-        self.buffer_size_limit = config.get("audio.buffer_size_limit", 100)  # 100 MB limit
-        self.enable_buffer_monitoring = config.get("audio.enable_buffer_monitoring", True)
+        self.max_recording_duration = config.get(
+            "audio.max_recording_duration", 300
+        )  # 5 minutes max
+        self.buffer_size_limit = config.get(
+            "audio.buffer_size_limit", 100
+        )  # 100 MB limit
+        self.enable_buffer_monitoring = config.get(
+            "audio.enable_buffer_monitoring", True
+        )
 
         # Validate configured device supports input and fallback if needed
         self._validate_and_fix_device_configuration()
@@ -49,7 +55,9 @@ class AudioRecorder(QObject):
         self.rate_auto_optimized = self.sample_rate != self.configured_sample_rate
 
         # Audio storage with memory management
-        self.audio_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=100)  # Limit queue size
+        self.audio_queue: queue.Queue[np.ndarray] = queue.Queue(
+            maxsize=100
+        )  # Limit queue size
         self.recording = False
         self.stream: Optional[sd.InputStream] = None
         self.audio_data: list[np.ndarray] = []
@@ -70,7 +78,7 @@ class AudioRecorder(QObject):
         # Log initialization with optimization info
         if self.rate_auto_optimized:
             logger.info(
-                f"🟢 AudioRecorder optimized: {self.configured_sample_rate}Hz → {self.sample_rate}Hz (device-optimal)"
+                f"🟢 AudioRecorder optimized: {self.configured_sample_rate}Hz → {self.sample_rate}Hz (device-optimal)"  # noqa: E501
             )
         else:
             logger.info(
@@ -78,7 +86,9 @@ class AudioRecorder(QObject):
             )
 
         # Log memory management settings
-        logger.info(f"Buffer limits: {self.max_recording_duration}s duration, {self.buffer_size_limit}MB size")
+        logger.info(
+            f"Buffer limits: {self.max_recording_duration}s duration, {self.buffer_size_limit}MB size"  # noqa: E501
+        )
 
         # Report optimization benefits
         self._report_optimization_benefits()
@@ -156,6 +166,7 @@ class AudioRecorder(QObject):
 
             # Record start time for duration tracking
             import time
+
             self.recording_start_time = time.time()
 
             # Create and start stream
@@ -178,12 +189,16 @@ class AudioRecorder(QObject):
 
             # Check for specific PortAudio errors
             if "paerrorcode -9986" in error_msg:
-                logger.error("🚫 Audio device unavailable - possible permission issue or device in use")
+                logger.error(
+                    "🚫 Audio device unavailable - possible permission issue or device in use"  # noqa: E501
+                )
                 self._suggest_audio_fixes()
             elif "paerrorcode -9988" in error_msg:
                 logger.error("🚫 Invalid device - device may have been disconnected")
             elif "audio unit: invalid property value" in error_msg:
-                logger.error("🚫 macOS Audio Unit error - trying alternative configuration")
+                logger.error(
+                    "🚫 macOS Audio Unit error - trying alternative configuration"
+                )
 
             logger.error(f"Failed to start recording with device {self.device}: {e}")
 
@@ -204,7 +219,9 @@ class AudioRecorder(QObject):
                     return
             else:
                 # We were already using default device - try alternative configs
-                logger.warning("Default device failed - trying alternative configurations...")
+                logger.warning(
+                    "Default device failed - trying alternative configurations..."
+                )
                 if self._try_alternative_configs():
                     return
 
@@ -215,10 +232,10 @@ class AudioRecorder(QObject):
 
     def _try_fallback_device(self, fallback_device: Optional[int]) -> bool:
         """Try to start recording with a fallback device.
-        
+
         Args:
             fallback_device: Device to try, or None for default
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -238,8 +255,12 @@ class AudioRecorder(QObject):
             self.device = fallback_device
 
             device_name = "default" if fallback_device is None else str(fallback_device)
-            logger.info(f"🟢 Successfully started recording with {device_name} device (fallback)")
-            logger.warning(f"🟡 Device {original_device} failed, now using {device_name} device")
+            logger.info(
+                f"🟢 Successfully started recording with {device_name} device (fallback)"  # noqa: E501
+            )
+            logger.warning(
+                f"🟡 Device {original_device} failed, now using {device_name} device"
+            )
             return True
 
         except Exception as e:
@@ -248,7 +269,7 @@ class AudioRecorder(QObject):
 
     def _try_fallback_sample_rates(self) -> bool:
         """Try alternative sample rates for better device compatibility.
-        
+
         Returns:
             True if successful, False otherwise
         """
@@ -275,8 +296,12 @@ class AudioRecorder(QObject):
                 original_rate = self.sample_rate
                 self.sample_rate = rate
 
-                logger.info(f"🟢 Successfully started recording at {rate}Hz (fallback from {original_rate}Hz)")
-                logger.warning(f"🟡 Sample rate changed from {original_rate}Hz to {rate}Hz for compatibility")
+                logger.info(
+                    f"🟢 Successfully started recording at {rate}Hz (fallback from {original_rate}Hz)"  # noqa: E501
+                )
+                logger.warning(
+                    f"🟡 Sample rate changed from {original_rate}Hz to {rate}Hz for compatibility"  # noqa: E501
+                )
                 return True
 
             except Exception as e:
@@ -287,13 +312,13 @@ class AudioRecorder(QObject):
 
     def _try_alternative_configs(self) -> bool:
         """Try alternative audio configurations for compatibility.
-        
+
         Returns:
             True if successful, False otherwise
         """
         # Try different configurations
         configs = [
-            {"channels": 1, "blocksize": 512},   # Mono, smaller buffer
+            {"channels": 1, "blocksize": 512},  # Mono, smaller buffer
             {"channels": 1, "blocksize": 2048},  # Mono, larger buffer
             {"channels": 2, "blocksize": 1024},  # Stereo, standard buffer
         ]
@@ -301,33 +326,41 @@ class AudioRecorder(QObject):
         original_channels = self.channels
         original_blocksize = self.chunk_size
 
-        for config in configs:
-            if (config["channels"] == self.channels and
-                config["blocksize"] == self.chunk_size):
+        for audio_config in configs:
+            if (
+                audio_config["channels"] == self.channels
+                and audio_config["blocksize"] == self.chunk_size
+            ):
                 continue  # Already tried this config
 
             try:
-                logger.debug(f"Trying config: {config['channels']}ch, {config['blocksize']} blocksize")
+                logger.debug(
+                    f"Trying config: {audio_config['channels']}ch, {audio_config['blocksize']} blocksize"  # noqa: E501
+                )
                 self.stream = sd.InputStream(
                     device=self.device,
-                    channels=config["channels"],
+                    channels=audio_config["channels"],
                     samplerate=self.sample_rate,
-                    blocksize=config["blocksize"],
+                    blocksize=audio_config["blocksize"],
                     callback=self._audio_callback,
                     dtype=np.float32,
                 )
                 self.stream.start()
                 self.recording = True
 
-                self.channels = config["channels"]
-                self.chunk_size = config["blocksize"]
+                self.channels = audio_config["channels"]
+                self.chunk_size = audio_config["blocksize"]
 
-                logger.info(f"🟢 Successfully started with alternative config: {self.channels}ch, {self.chunk_size} blocksize")
-                logger.warning(f"🟡 Audio config changed from {original_channels}ch/{original_blocksize} to {self.channels}ch/{self.chunk_size}")
+                logger.info(
+                    f"🟢 Successfully started with alternative config: {self.channels}ch, {self.chunk_size} blocksize"  # noqa: E501
+                )
+                logger.warning(
+                    f"🟡 Audio config changed from {original_channels}ch/{original_blocksize} to {self.channels}ch/{self.chunk_size}"  # noqa: E501
+                )
                 return True
 
             except Exception as e:
-                logger.debug(f"Config {config} failed: {e}")
+                logger.debug(f"Config {audio_config} failed: {e}")
                 continue
 
         return False
@@ -335,7 +368,9 @@ class AudioRecorder(QObject):
     def _suggest_audio_fixes(self) -> None:
         """Suggest potential fixes for audio issues."""
         logger.error("🔧 SUGGESTED FIXES:")
-        logger.error("   1. Check microphone permissions in System Preferences > Security & Privacy > Microphone")
+        logger.error(
+            "   1. Check microphone permissions in System Preferences > Security & Privacy > Microphone"  # noqa: E501
+        )
         logger.error("   2. Ensure no other app is using the microphone")
         logger.error("   3. Try disconnecting and reconnecting external microphones")
         logger.error("   4. Restart the application")
@@ -443,7 +478,7 @@ class AudioRecorder(QObject):
 
         if old_sample_rate != self.sample_rate:
             logger.info(
-                f"🔧 Sample rate optimized for new device: {old_sample_rate}Hz → {self.sample_rate}Hz"
+                f"🔧 Sample rate optimized for new device: {old_sample_rate}Hz → {self.sample_rate}Hz"  # noqa: E501
             )
 
         # Debug the new setup
@@ -463,7 +498,7 @@ class AudioRecorder(QObject):
         logger.info("=== AUDIO SETUP DEBUG ===")
         logger.info(f"Configured device: {self.device}")
         logger.info(
-            f"Sample rate: {self.sample_rate} (configured: {self.configured_sample_rate})"
+            f"Sample rate: {self.sample_rate} (configured: {self.configured_sample_rate})"  # noqa: E501
         )
         logger.info(f"Channels: {self.channels}")
         logger.info(f"Chunk size: {self.chunk_size}")
@@ -474,7 +509,7 @@ class AudioRecorder(QObject):
             # Query default device
             default_input = sd.query_devices(kind="input")
             logger.info(
-                f"Default input device: [{default_input['index']}] {default_input['name']}"
+                f"Default input device: [{default_input['index']}] {default_input['name']}"  # noqa: E501
             )
 
             # If specific device configured, show its details
@@ -482,7 +517,7 @@ class AudioRecorder(QObject):
                 try:
                     device_info = sd.query_devices(self.device)
                     logger.info(
-                        f"Configured device details: [{self.device}] {device_info['name']}"
+                        f"Configured device details: [{self.device}] {device_info['name']}"  # noqa: E501
                     )
                     logger.info(
                         f"  Max input channels: {device_info['max_input_channels']}"
@@ -504,7 +539,7 @@ class AudioRecorder(QObject):
                     recommendation = self._get_device_recommendation(device)
 
                     logger.info(
-                        f"  [{i}] {device['name']} - {device['max_input_channels']} ch @ {device['default_samplerate']}Hz {recommendation}{is_default}{is_selected}"
+                        f"  [{i}] {device['name']} - {device['max_input_channels']} ch @ {device['default_samplerate']}Hz {recommendation}{is_default}{is_selected}"  # noqa: E501
                     )
 
         except Exception as e:
@@ -567,7 +602,7 @@ class AudioRecorder(QObject):
 
         Priority order:
         1. If device supports 16kHz natively → use 16kHz (no resampling needed for ASR)
-        2. If device supports common rates → select closest to 16kHz that minimizes resampling
+        2. If device supports common rates → select closest to 16kHz that minimizes resampling  # noqa: E501
         3. Use device native rate to minimize one resampling step
         4. Fall back to configured rate
 
@@ -586,7 +621,7 @@ class AudioRecorder(QObject):
             # Test if device supports 16kHz (Parakeet native)
             if self._test_device_sample_rate(16000):
                 logger.info(
-                    "🟢 OPTIMAL: Device supports 16kHz natively - no ASR resampling needed!"
+                    "🟢 OPTIMAL: Device supports 16kHz natively - no ASR resampling needed!"  # noqa: E501
                 )
                 return 16000
 
@@ -597,14 +632,14 @@ class AudioRecorder(QObject):
             # This is better than upsampling device to higher rate then downsampling
             if device_native_rate >= 16000:
                 logger.info(
-                    f"🟡 GOOD: Using device native {device_native_rate}Hz → single downsample to 16kHz for ASR"
+                    f"🟡 GOOD: Using device native {device_native_rate}Hz → single downsample to 16kHz for ASR"  # noqa: E501
                 )
                 return device_native_rate
 
             # Device is below 16kHz - we need to upsample for ASR anyway
             # Use configured rate or a reasonable minimum
             logger.warning(
-                f"🟡 SUBOPTIMAL: Device only supports {device_native_rate}Hz - requires upsampling for ASR"
+                f"🟡 SUBOPTIMAL: Device only supports {device_native_rate}Hz - requires upsampling for ASR"  # noqa: E501
             )
 
             # Use configured rate if reasonable, otherwise use a common rate
@@ -612,7 +647,7 @@ class AudioRecorder(QObject):
                 return self.configured_sample_rate
             else:
                 logger.warning(
-                    f"🟡 Configured rate {self.configured_sample_rate}Hz too low, using 44100Hz"
+                    f"🟡 Configured rate {self.configured_sample_rate}Hz too low, using 44100Hz"  # noqa: E501
                 )
                 return 44100
 
@@ -665,13 +700,13 @@ class AudioRecorder(QObject):
                 detail = f"Single downsample: {self.sample_rate}Hz → 16kHz for ASR"
             else:
                 performance = "🟡 SUBOPTIMAL"
-                detail = f"Double resample: {device_native_rate}Hz → {self.sample_rate}Hz → 16kHz"
+                detail = f"Double resample: {device_native_rate}Hz → {self.sample_rate}Hz → 16kHz"  # noqa: E501
 
             logger.info(f"{performance} Pipeline: {detail}")
 
             if self.rate_auto_optimized:
                 logger.info(
-                    f"🔧 Auto-optimized from {self.configured_sample_rate}Hz to {self.sample_rate}Hz"
+                    f"🔧 Auto-optimized from {self.configured_sample_rate}Hz to {self.sample_rate}Hz"  # noqa: E501
                 )
 
         except Exception as e:
@@ -691,11 +726,11 @@ class AudioRecorder(QObject):
             if device_sample_rate != self.sample_rate:
                 # This is now expected and handled by optimization
                 logger.debug(
-                    f"Device native: {device_sample_rate}Hz, Using: {self.sample_rate}Hz (optimized)"
+                    f"Device native: {device_sample_rate}Hz, Using: {self.sample_rate}Hz (optimized)"  # noqa: E501
                 )
             else:
                 logger.info(
-                    f"🟢 Perfect match: Device and capture both use {self.sample_rate}Hz"
+                    f"🟢 Perfect match: Device and capture both use {self.sample_rate}Hz"  # noqa: E501
                 )
 
         except Exception as e:
@@ -713,7 +748,7 @@ class AudioRecorder(QObject):
 
             if device_info["max_input_channels"] == 0:
                 logger.warning(
-                    f"🟡 Configured device {self.device} ('{device_info['name']}') is output-only, "
+                    f"🟡 Configured device {self.device} ('{device_info['name']}') is output-only, "  # noqa: E501
                     "falling back to default device"
                 )
                 self.device = None
@@ -751,7 +786,7 @@ class AudioRecorder(QObject):
         # Check for silence (very low RMS)
         if rms < 0.001:
             logger.warning(
-                f"🟡 Audio validation warning: Very low RMS {rms:.6f} - possible silence or wrong microphone"
+                f"🟡 Audio validation warning: Very low RMS {rms:.6f} - possible silence or wrong microphone"  # noqa: E501
             )
             return False
 
@@ -759,12 +794,12 @@ class AudioRecorder(QObject):
         clipped_samples = np.sum(np.abs(audio_data) > 0.99)
         if clipped_samples > len(audio_data) * 0.01:  # More than 1% clipped
             logger.warning(
-                f"🟡 Audio validation warning: Clipping detected in {clipped_samples} samples ({clipped_samples / len(audio_data) * 100:.1f}%)"
+                f"🟡 Audio validation warning: Clipping detected in {clipped_samples} samples ({clipped_samples / len(audio_data) * 100:.1f}%)"  # noqa: E501
             )
 
         # Log audio quality metrics
         logger.info(
-            f"🟢 Audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"
+            f"🟢 Audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"  # noqa: E501
         )
 
         # Save debug audio file if enabled
@@ -790,7 +825,7 @@ class AudioRecorder(QObject):
 
     def _should_stop_due_to_limits(self) -> bool:
         """Check if recording should stop due to memory or duration limits.
-        
+
         Returns:
             True if recording should stop due to limits.
         """
@@ -800,14 +835,18 @@ class AudioRecorder(QObject):
         if self.max_recording_duration > 0:
             current_duration = time.time() - self.recording_start_time
             if current_duration > self.max_recording_duration:
-                logger.warning(f"🟡 Recording duration limit reached: {current_duration:.1f}s")
+                logger.warning(
+                    f"🟡 Recording duration limit reached: {current_duration:.1f}s"
+                )
                 return True
 
         # Check buffer size limit
         if self.buffer_size_limit > 0:
             current_size_mb = self._total_audio_size / (1024 * 1024)
             if current_size_mb > self.buffer_size_limit:
-                logger.warning(f"🟡 Audio buffer size limit reached: {current_size_mb:.1f}MB")
+                logger.warning(
+                    f"🟡 Audio buffer size limit reached: {current_size_mb:.1f}MB"
+                )
                 return True
 
         return False
@@ -818,6 +857,7 @@ class AudioRecorder(QObject):
             return
 
         import time
+
         current_time = time.time()
 
         # Only check every 10 seconds to avoid overhead
@@ -828,27 +868,40 @@ class AudioRecorder(QObject):
 
         try:
             import psutil
+
             process = psutil.Process()
             memory_info = process.memory_info()
 
             duration = current_time - self.recording_start_time
             buffer_size_mb = self._total_audio_size / (1024 * 1024)
 
-            logger.debug(f"📊 Recording stats: {duration:.1f}s, {buffer_size_mb:.1f}MB buffer, {memory_info.rss/1024/1024:.1f}MB RSS")
+            logger.debug(
+                f"📊 Recording stats: {duration:.1f}s, {buffer_size_mb:.1f}MB buffer, {memory_info.rss / 1024 / 1024:.1f}MB RSS"  # noqa: E501
+            )
 
             # Warn if approaching limits
-            if self.max_recording_duration > 0 and duration > self.max_recording_duration * 0.8:
-                logger.warning(f"🟡 Approaching recording duration limit: {duration:.1f}s / {self.max_recording_duration}s")
+            if (
+                self.max_recording_duration > 0
+                and duration > self.max_recording_duration * 0.8
+            ):
+                logger.warning(
+                    f"🟡 Approaching recording duration limit: {duration:.1f}s / {self.max_recording_duration}s"  # noqa: E501
+                )
 
-            if self.buffer_size_limit > 0 and buffer_size_mb > self.buffer_size_limit * 0.8:
-                logger.warning(f"🟡 Approaching buffer size limit: {buffer_size_mb:.1f}MB / {self.buffer_size_limit}MB")
+            if (
+                self.buffer_size_limit > 0
+                and buffer_size_mb > self.buffer_size_limit * 0.8
+            ):
+                logger.warning(
+                    f"🟡 Approaching buffer size limit: {buffer_size_mb:.1f}MB / {self.buffer_size_limit}MB"  # noqa: E501
+                )
 
         except ImportError:
             logger.debug("psutil not available for memory monitoring")
 
     def get_memory_stats(self) -> dict:
         """Get current memory and buffer statistics.
-        
+
         Returns:
             Dictionary with memory stats.
         """
@@ -869,12 +922,15 @@ class AudioRecorder(QObject):
 
         try:
             import psutil
+
             process = psutil.Process()
             memory_info = process.memory_info()
-            stats.update({
-                "process_rss_mb": memory_info.rss / (1024 * 1024),
-                "process_vms_mb": memory_info.vms / (1024 * 1024),
-            })
+            stats.update(
+                {
+                    "process_rss_mb": memory_info.rss / (1024 * 1024),
+                    "process_vms_mb": memory_info.vms / (1024 * 1024),
+                }
+            )
         except ImportError:
             pass
 
@@ -897,6 +953,7 @@ class AudioRecorder(QObject):
 
         # Force garbage collection
         import gc
+
         gc.collect()
 
         logger.debug("Audio buffers cleared")

@@ -138,10 +138,10 @@ class BatchTranscriptionWorker(QThread):
             # Use same model and settings as real-time transcription
             # ASRTranscriber gets model_id from config internally
             self.transcriber = ASRTranscriber()
-            
+
             # Load the model
             self.transcriber.load_model()
-            
+
             logger.info("🟢 ASR transcriber initialized for batch processing")
 
         except Exception as e:
@@ -198,17 +198,25 @@ class BatchTranscriptionWorker(QThread):
             # Get file size to determine processing strategy
             file_size_mb = audio_path.stat().st_size / (1024 * 1024)
             max_chunk_duration = 60.0  # 60 seconds per chunk
-            
+
             if file_size_mb > 50:  # Large file threshold
-                logger.info(f"📦 Large file detected ({file_size_mb:.1f}MB), using chunked processing")
-                return self._transcribe_large_file_chunked(audio_path, max_chunk_duration)
+                logger.info(
+                    f"📦 Large file detected ({file_size_mb:.1f}MB), using chunked processing"  # noqa: E501
+                )
+                return self._transcribe_large_file_chunked(
+                    audio_path, max_chunk_duration
+                )
             else:
                 # Standard processing for smaller files
-                logger.debug(f"📄 Standard processing for {audio_path.name} ({file_size_mb:.1f}MB)")
-                
+                logger.debug(
+                    f"📄 Standard processing for {audio_path.name} ({file_size_mb:.1f}MB)"  # noqa: E501
+                )
+
                 # Load with duration limit to prevent memory issues
                 max_duration = 300.0  # 5 minutes max
-                audio_data, sample_rate = self.audio_converter.load_audio_data(audio_path, max_duration)
+                audio_data, sample_rate = self.audio_converter.load_audio_data(
+                    audio_path, max_duration
+                )
 
                 # Transcribe using existing ASR infrastructure
                 transcript = self.transcriber.transcribe(audio_data, sample_rate)
@@ -221,57 +229,68 @@ class BatchTranscriptionWorker(QThread):
         except Exception as e:
             raise ASRError(f"Transcription failed: {e}")
 
-    def _transcribe_large_file_chunked(self, audio_path: Path, chunk_duration: float) -> str:
+    def _transcribe_large_file_chunked(
+        self, audio_path: Path, chunk_duration: float
+    ) -> str:
         """Transcribe large audio file using chunked processing.
-        
+
         Args:
             audio_path: Path to large audio file
             chunk_duration: Duration of each chunk in seconds
-            
+
         Returns:
             Combined transcription text
         """
         try:
             # Load file in chunks
-            audio_chunks = self.audio_converter.load_audio_chunks(audio_path, chunk_duration)
-            
+            audio_chunks = self.audio_converter.load_audio_chunks(
+                audio_path, chunk_duration
+            )
+
             if not audio_chunks:
                 return ""
-            
+
             transcripts = []
             total_chunks = len(audio_chunks)
-            
+
             for i, (chunk_data, sample_rate) in enumerate(audio_chunks):
                 if self.should_stop:
                     logger.warning("⚠️ Chunked transcription stopped by user")
                     break
-                
-                logger.debug(f"📝 Processing chunk {i+1}/{total_chunks}")
-                
+
+                logger.debug(f"📝 Processing chunk {i + 1}/{total_chunks}")
+
                 try:
                     # Transcribe chunk
-                    chunk_transcript = self.transcriber.transcribe(chunk_data, sample_rate)
+                    chunk_transcript = self.transcriber.transcribe(
+                        chunk_data, sample_rate
+                    )
                     transcripts.append(chunk_transcript)
-                    
+
                     # Clear chunk data from memory immediately
                     del chunk_data
-                    
+
                     # Force garbage collection every few chunks
                     if (i + 1) % 5 == 0:
                         import gc
+
                         gc.collect()
-                        logger.debug(f"🗑️ Memory cleanup after chunk {i+1}")
-                    
+                        logger.debug(f"🗑️ Memory cleanup after chunk {i + 1}")
+
                 except Exception as e:
-                    logger.error(f"❌ Error transcribing chunk {i+1}: {e}")
-                    transcripts.append(f"[Error in chunk {i+1}: {str(e)}]")
-            
+                    logger.error(f"❌ Error transcribing chunk {i + 1}: {e}")
+                    transcripts.append(f"[Error in chunk {i + 1}: {str(e)}]")
+
             # Combine transcripts with proper spacing
-            combined_transcript = " ".join(transcript.strip() for transcript in transcripts if transcript.strip())
-            
-            logger.info(f"✅ Chunked transcription complete: {len(combined_transcript)} characters from {total_chunks} chunks")
+            combined_transcript = " ".join(
+                transcript.strip() for transcript in transcripts if transcript.strip()
+            )
+
+            logger.info(
+                f"✅ Chunked transcription complete: {len(combined_transcript)} characters from {total_chunks} chunks"  # noqa: E501
+            )
             return combined_transcript
-            
+
         except Exception as e:
             logger.error(f"❌ Chunked transcription failed: {e}")
             raise ASRError(f"Chunked transcription failed: {e}")
@@ -319,7 +338,7 @@ class BatchTranscriptionWorker(QThread):
             # Combine transcripts
             full_transcript = " ".join(transcripts)
             logger.info(
-                f"📝 Combined transcript: {len(full_transcript)} characters from {len(transcripts)} chunks"
+                f"📝 Combined transcript: {len(full_transcript)} characters from {len(transcripts)} chunks"  # noqa: E501
             )
 
             return full_transcript
@@ -382,7 +401,9 @@ class BatchTranscriptionWorker(QThread):
             "transcript": transcript,
             "length": len(transcript),
             "processing_info": {
-                "model": config.get("asr.model_id", "mlx-community/parakeet-tdt-0.6b-v2"),
+                "model": config.get(
+                    "asr.model_id", "mlx-community/parakeet-tdt-0.6b-v2"
+                ),
                 "sample_rate": 16000,
                 "channels": 1,
             },

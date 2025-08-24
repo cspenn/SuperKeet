@@ -28,7 +28,7 @@ class AudioConfig(BaseModel):
     channels: int = Field(default=1, description="Number of audio channels")
     chunk_size: int = Field(default=8192, description="Audio chunk size")
     gain: float = Field(default=1.0, description="Audio gain multiplier")
-    
+
     # Memory management settings
     max_recording_duration: int = Field(
         default=300, description="Maximum recording duration in seconds"
@@ -99,12 +99,15 @@ class LoggingConfig(BaseModel):
 class ASRConfig(BaseModel):
     """ASR (Automatic Speech Recognition) configuration validation."""
 
-    model_id: str = Field(default="nvidia/parakeet-tdt-0.6b-v3", description="ASR model ID (Parakeet v3)")
+    model_id: str = Field(
+        default="nvidia/parakeet-tdt-0.6b-v3", description="ASR model ID (Parakeet v3)"
+    )
     parakeet_native_rate: int = Field(
         default=16000, description="Parakeet native sample rate"
     )
     auto_unload_timeout: int = Field(
-        default=300, description="Auto-unload model after N seconds of inactivity (0 to disable)"
+        default=300,
+        description="Auto-unload model after N seconds of inactivity (0 to disable)",
     )
     max_audio_duration: float = Field(
         default=1440.0, description="Maximum audio duration in seconds (24 minutes)"

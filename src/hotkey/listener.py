@@ -26,7 +26,7 @@ class HotkeyListener:
     def __init__(self) -> None:
         """Initialize the hotkey listener."""
         self.signals = HotkeySignals()
-        
+
         # Get hotkey combination - handle both string and list formats
         hotkey_config = config.get("hotkey.combination", "cmd+shift+space")
         if isinstance(hotkey_config, str):

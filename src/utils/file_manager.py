@@ -82,7 +82,7 @@ class FileManager:
 
             if files_removed > 0:
                 logger.info(
-                    f"🧹 Cleaned up {files_removed} debug files from {self.base_directory}"
+                    f"🧹 Cleaned up {files_removed} debug files from {self.base_directory}"  # noqa: E501
                 )
 
             return files_removed
@@ -215,7 +215,7 @@ class FileManager:
                 f"{size_mb:.1f}MB ({file_count} files) in {self.base_directory}"
             )
             logger.info(
-                "💡 Consider enabling automatic cleanup or manually clearing old debug files"
+                "💡 Consider enabling automatic cleanup or manually clearing old debug files"  # noqa: E501
             )
             return True
 

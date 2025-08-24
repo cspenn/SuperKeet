@@ -228,7 +228,9 @@ class AudioConverter:
             logger.error(f"🛑 {error_msg}")
             raise FileOperationError(error_msg)
 
-    def load_audio_data(self, audio_path: Path, max_duration: Optional[float] = None) -> Tuple[np.ndarray, int]:
+    def load_audio_data(
+        self, audio_path: Path, max_duration: Optional[float] = None
+    ) -> Tuple[np.ndarray, int]:
         """Load audio data from file for ASR processing with memory management.
 
         Args:
@@ -243,14 +245,20 @@ class AudioConverter:
             info = sf.info(str(audio_path))
             file_duration = info.duration
             file_size_mb = audio_path.stat().st_size / (1024 * 1024)
-            
-            logger.debug(f"📁 Audio file info: {file_duration:.1f}s, {file_size_mb:.1f}MB")
-            
+
+            logger.debug(
+                f"📁 Audio file info: {file_duration:.1f}s, {file_size_mb:.1f}MB"
+            )
+
             # Check if we need to limit duration for memory management
             if max_duration and file_duration > max_duration:
-                logger.warning(f"⚠️ Large audio file ({file_duration:.1f}s), limiting to {max_duration:.1f}s")
+                logger.warning(
+                    f"⚠️ Large audio file ({file_duration:.1f}s), limiting to {max_duration:.1f}s"  # noqa: E501
+                )
                 frames_to_read = int(max_duration * info.samplerate)
-                audio_data, sample_rate = sf.read(str(audio_path), frames=frames_to_read, dtype=np.float32)
+                audio_data, sample_rate = sf.read(
+                    str(audio_path), frames=frames_to_read, dtype=np.float32
+                )
             else:
                 # Load entire file
                 audio_data, sample_rate = sf.read(str(audio_path), dtype=np.float32)
@@ -261,7 +269,7 @@ class AudioConverter:
 
             # Calculate memory usage
             memory_mb = audio_data.nbytes / (1024 * 1024)
-            
+
             logger.debug(
                 f"📡 Loaded audio: {audio_data.shape[0]} samples @ {sample_rate}Hz "
                 f"({audio_data.shape[0] / sample_rate:.1f}s, {memory_mb:.1f}MB)"
@@ -274,7 +282,9 @@ class AudioConverter:
             logger.error(f"🔴 {error_msg}")
             raise FileOperationError(error_msg)
 
-    def load_audio_chunks(self, audio_path: Path, chunk_duration: float = 30.0) -> List[Tuple[np.ndarray, int]]:
+    def load_audio_chunks(
+        self, audio_path: Path, chunk_duration: float = 30.0
+    ) -> List[Tuple[np.ndarray, int]]:
         """Load large audio files in chunks to manage memory usage.
 
         Args:
@@ -289,41 +299,45 @@ class AudioConverter:
             info = sf.info(str(audio_path))
             total_duration = info.duration
             sample_rate = info.samplerate
-            
+
             if total_duration <= chunk_duration:
                 # File is small enough, load normally
                 logger.debug(f"📄 Small file ({total_duration:.1f}s), loading normally")
                 audio_data, sr = self.load_audio_data(audio_path)
                 return [(audio_data, sr)]
-            
-            logger.info(f"📦 Large file ({total_duration:.1f}s), processing in {chunk_duration}s chunks")
-            
+
+            logger.info(
+                f"📦 Large file ({total_duration:.1f}s), processing in {chunk_duration}s chunks"  # noqa: E501
+            )
+
             chunks = []
             frames_per_chunk = int(chunk_duration * sample_rate)
             total_frames = info.frames
-            
+
             # Process file in chunks
             with sf.SoundFile(str(audio_path)) as audio_file:
                 while audio_file.tell() < total_frames:
                     # Read chunk
                     chunk_data = audio_file.read(frames_per_chunk, dtype=np.float32)
-                    
+
                     if len(chunk_data) == 0:
                         break
-                    
+
                     # Ensure mono
                     if len(chunk_data.shape) > 1:
                         chunk_data = np.mean(chunk_data, axis=1)
-                    
+
                     chunks.append((chunk_data, sample_rate))
-                    
+
                     # Log progress
                     progress = (audio_file.tell() / total_frames) * 100
-                    logger.debug(f"📊 Chunk loaded: {len(chunk_data)/sample_rate:.1f}s ({progress:.1f}% complete)")
-            
+                    logger.debug(
+                        f"📊 Chunk loaded: {len(chunk_data) / sample_rate:.1f}s ({progress:.1f}% complete)"  # noqa: E501
+                    )
+
             logger.info(f"✅ File split into {len(chunks)} chunks")
             return chunks
-            
+
         except Exception as e:
             error_msg = f"Failed to load audio chunks: {e}"
             logger.error(f"🔴 {error_msg}")

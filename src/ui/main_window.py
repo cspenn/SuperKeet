@@ -245,28 +245,28 @@ class MainWindow(QMainWindow):
         QMainWindow {
             background-color: #1E1E1E;
         }
-        
+
         QLabel {
             color: #EAEAEA;
             background-color: transparent;
         }
-        
+
         QLabel#status_dot_gray {
             color: #8E8E93;
         }
-        
+
         QLabel#status_dot_blue {
             color: #007AFF;
         }
-        
+
         QLabel#status_dot_yellow {
             color: #FFD60A;
         }
-        
+
         QLabel#status_dot_red {
             color: #FF3B30;
         }
-        
+
         QTextEdit {
             background-color: #2A2A2A;
             color: #EAEAEA;
@@ -274,11 +274,11 @@ class MainWindow(QMainWindow):
             padding: 10px;
             font-size: 14px;
         }
-        
+
         QTextEdit::placeholder {
             color: #8E8E93;
         }
-        
+
         QComboBox {
             background-color: #2A2A2A;
             color: #EAEAEA;
@@ -286,11 +286,11 @@ class MainWindow(QMainWindow):
             padding: 5px;
             border-radius: 4px;
         }
-        
+
         QComboBox::drop-down {
             border: none;
         }
-        
+
         QComboBox::down-arrow {
             image: none;
             border-left: 5px solid transparent;
@@ -298,22 +298,22 @@ class MainWindow(QMainWindow):
             border-top: 5px solid #8E8E93;
             margin-right: 5px;
         }
-        
+
         QPushButton {
             background-color: #2A2A2A;
             color: #EAEAEA;
             border: 1px solid #3A3A3A;
             border-radius: 4px;
         }
-        
+
         QPushButton:hover {
             background-color: #3A3A3A;
         }
-        
+
         QFrame[frameShape="4"] {
             background-color: #3A3A3A;
         }
-        
+
         QLabel#hint {
             color: #8E8E93;
             font-size: 13px;
@@ -429,13 +429,6 @@ class MainWindow(QMainWindow):
         for device in devices:
             self.mic_selector.addItem(device)
 
-    def closeEvent(self, event):
-        """Handle window close event."""
-        # Don't quit the app, just hide the window
-        event.ignore()
-        self.hide()
-        logger.info("🟢 MainWindow hidden")
-
     def _on_microphone_changed(self, index: int):
         """Handle microphone selection change."""
         device_index = self.mic_selector.itemData(index)
@@ -494,9 +487,9 @@ class MainWindow(QMainWindow):
     def cleanup_timers(self) -> None:
         """Clean up all QTimer instances to prevent memory leaks."""
         logger.debug("🧹 Cleaning up MainWindow timers")
-        
+
         # Stop and clean up status dot timer
-        if hasattr(self, '_status_dot_timer') and self._status_dot_timer is not None:
+        if hasattr(self, "_status_dot_timer") and self._status_dot_timer is not None:
             try:
                 self._status_dot_timer.stop()
                 self._status_dot_timer.deleteLater()
@@ -504,9 +497,9 @@ class MainWindow(QMainWindow):
                 logger.debug("✅ Status dot timer cleaned up")
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up status dot timer: {e}")
-        
+
         # Stop and clean up clipboard timer
-        if hasattr(self, '_clipboard_timer') and self._clipboard_timer is not None:
+        if hasattr(self, "_clipboard_timer") and self._clipboard_timer is not None:
             try:
                 self._clipboard_timer.stop()
                 self._clipboard_timer.deleteLater()
@@ -514,9 +507,9 @@ class MainWindow(QMainWindow):
                 logger.debug("✅ Clipboard timer cleaned up")
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up clipboard timer: {e}")
-        
+
         # Stop and clean up processing timer
-        if hasattr(self, '_processing_timer') and self._processing_timer is not None:
+        if hasattr(self, "_processing_timer") and self._processing_timer is not None:
             try:
                 self._processing_timer.stop()
                 self._processing_timer.deleteLater()
@@ -524,21 +517,21 @@ class MainWindow(QMainWindow):
                 logger.debug("✅ Processing timer cleaned up")
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up processing timer: {e}")
-        
+
         # Clean up audio animation widget timers
-        if hasattr(self, 'audio_animation') and self.audio_animation is not None:
+        if hasattr(self, "audio_animation") and self.audio_animation is not None:
             try:
-                if hasattr(self.audio_animation, 'cleanup_timers'):
+                if hasattr(self.audio_animation, "cleanup_timers"):
                     self.audio_animation.cleanup_timers()
                 logger.debug("✅ Audio animation timers cleaned up")
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up audio animation: {e}")
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # noqa: N802
         """Handle window close event with proper cleanup."""
         # Clean up timers before closing
         self.cleanup_timers()
-        
+
         # Don't quit the app, just hide the window
         event.ignore()
         self.hide()

@@ -95,7 +95,7 @@ class AudioAnimationWidget(QWidget):
         self.target_audio_level = 0.0
         self.current_audio_level = 0.0
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         """Paint the animation."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -183,7 +183,7 @@ class AudioAnimationWidget(QWidget):
 
     def cleanup_timers(self) -> None:
         """Clean up animation timer to prevent memory leaks."""
-        if hasattr(self, 'animation_timer') and self.animation_timer is not None:
+        if hasattr(self, "animation_timer") and self.animation_timer is not None:
             try:
                 self.animation_timer.stop()
                 self.animation_timer.deleteLater()
@@ -192,7 +192,7 @@ class AudioAnimationWidget(QWidget):
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up animation timer: {e}")
 
-    def closeEvent(self, event):
+    def closeEvent(self, event):  # noqa: N802
         """Handle widget close with timer cleanup."""
         self.cleanup_timers()
         super().closeEvent(event)

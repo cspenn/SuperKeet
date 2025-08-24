@@ -23,7 +23,7 @@ class TextInjector:
         self.keyboard = Controller()
 
         logger.info(
-            f"TextInjector initialized with method: {self.method}, auto_paste: {self.auto_paste}"
+            f"TextInjector initialized with method: {self.method}, auto_paste: {self.auto_paste}"  # noqa: E501
         )
 
     def inject(self, text: str) -> bool:
@@ -45,7 +45,7 @@ class TextInjector:
             elif self.method == "accessibility":
                 # Future enhancement: implement direct accessibility API injection
                 logger.warning(
-                    "Accessibility method not yet implemented, falling back to clipboard"
+                    "Accessibility method not yet implemented, falling back to clipboard"  # noqa: E501
                 )
                 return self._inject_via_clipboard(text)
             else:

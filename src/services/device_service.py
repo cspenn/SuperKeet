@@ -153,7 +153,7 @@ class DeviceService:
                 device_index or device_info["index"], 16000
             ):
                 logger.info(
-                    "🟢 OPTIMAL: Device supports 16kHz natively - no ASR resampling needed!"
+                    "🟢 OPTIMAL: Device supports 16kHz natively - no ASR resampling needed!"  # noqa: E501
                 )
                 return 16000
 

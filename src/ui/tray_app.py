@@ -137,10 +137,10 @@ class SuperKeetApp:
         # Ensure dock icon is visible and properly named
         self.app.setApplicationDisplayName("SuperKeet")
         self.app.setApplicationName("SuperKeet")
-        
+
         # Set the dock icon to use the same parakeet icon
         self.app.setWindowIcon(self.icon)
-        
+
         # Create dock menu with same functionality as tray menu
         self._setup_dock_menu()
 
@@ -404,19 +404,21 @@ class SuperKeetApp:
         """Clean up ASR worker thread safely with timeout and forced cleanup."""
         if not self.asr_worker:
             return
-            
+
         try:
             logger.debug("🧹 Cleaning up ASR worker thread...")
-            
+
             # First, try to signal the thread to quit gracefully
             self.asr_worker.quit()
-            
+
             # Wait for thread to finish, but with a timeout
             if self.asr_worker.wait(5000):  # 5 second timeout
                 logger.debug("✅ ASR worker terminated gracefully")
             else:
-                logger.warning("⚠️ ASR worker didn't terminate gracefully, forcing cleanup")
-                
+                logger.warning(
+                    "⚠️ ASR worker didn't terminate gracefully, forcing cleanup"
+                )
+
                 # Try to terminate the thread forcefully
                 try:
                     self.asr_worker.terminate()
@@ -426,7 +428,7 @@ class SuperKeetApp:
                         logger.error("❌ ASR worker failed to terminate")
                 except Exception as term_error:
                     logger.error(f"❌ Error terminating ASR worker: {term_error}")
-            
+
             # Disconnect signals to prevent memory leaks
             try:
                 self.asr_worker.transcription_complete.disconnect()
@@ -434,18 +436,19 @@ class SuperKeetApp:
                 logger.debug("✅ ASR worker signals disconnected")
             except Exception as disconnect_error:
                 logger.debug(f"Signal disconnect warning: {disconnect_error}")
-            
+
             # Set to None regardless of termination success
             self.asr_worker = None
             logger.debug("✅ ASR worker reference cleared")
-            
+
         except Exception as e:
             logger.error(f"❌ Error during ASR worker cleanup: {e}")
             # Force cleanup even if everything fails
             self.asr_worker = None
-            
+
         # Force garbage collection after thread cleanup
         import gc
+
         gc.collect()
 
     @Slot(str)
@@ -487,8 +490,7 @@ class SuperKeetApp:
 
     def _add_recent_transcription(self, text: str) -> None:
         """Add a transcription to the recent menu."""
-        # Limit text length for menu display
-        display_text = text[:50] + "..." if len(text) > 50 else text
+        # Limit text length for menu display (unused variable removed)
 
         # Add to list
         self.recent_transcriptions.insert(0, text)
@@ -585,7 +587,7 @@ class SuperKeetApp:
                 if self.tray_icon.supportsMessages():
                     self.tray_icon.showMessage(
                         "SuperKeet",
-                        "Downloading ASR model (~600MB). This is a one-time download...",
+                        "Downloading ASR model (~600MB). This is a one-time download...",  # noqa: E501
                         QSystemTrayIcon.MessageIcon.Information,
                         5000,
                     )
@@ -642,6 +644,7 @@ class SuperKeetApp:
             logger.error(f"🛑 Application error: {e}")
             logger.error(f"🛑 Error type: {type(e).__name__}")
             import traceback
+
             logger.error(f"🛑 Stack trace: {traceback.format_exc()}")
             self.cleanup()
             raise
@@ -662,10 +665,13 @@ class SuperKeetApp:
 
         # Stop audio recorder if it's running
         try:
-            if hasattr(self.audio_recorder, 'recording') and self.audio_recorder.recording:
+            if (
+                hasattr(self.audio_recorder, "recording")
+                and self.audio_recorder.recording
+            ):
                 self.audio_recorder.stop()
             # Clear audio buffers
-            if hasattr(self.audio_recorder, 'clear_audio_buffers'):
+            if hasattr(self.audio_recorder, "clear_audio_buffers"):
                 self.audio_recorder.clear_audio_buffers()
             logger.debug("✅ Audio recorder cleaned up")
         except Exception as e:
@@ -673,7 +679,7 @@ class SuperKeetApp:
 
         # Clean up ASR transcriber (includes model unloading and timer cleanup)
         try:
-            if hasattr(self.asr_transcriber, 'cleanup'):
+            if hasattr(self.asr_transcriber, "cleanup"):
                 self.asr_transcriber.cleanup()
             else:
                 self.asr_transcriber.unload_model()
@@ -690,9 +696,10 @@ class SuperKeetApp:
 
         # Force garbage collection
         import gc
+
         collected = gc.collect()
         logger.info(f"🗑️ Garbage collection: {collected} objects collected")
-        
+
         logger.info("✅ Application cleanup completed")
 
 

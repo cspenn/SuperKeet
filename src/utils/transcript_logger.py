@@ -92,7 +92,7 @@ class TranscriptLogger:
             try:
                 with open(log_file, "r", encoding="utf-8") as f:
                     entries = json.load(f)
-            except:
+            except Exception:
                 logger.warning("Failed to read existing JSON file, starting fresh")
 
         # Append new entry
@@ -121,7 +121,7 @@ class TranscriptLogger:
             self._ensure_directory()
 
         logger.info(
-            f"Updated transcript settings: enabled={enabled}, dir={directory}, format={format}"
+            f"Updated transcript settings: enabled={enabled}, dir={directory}, format={format}"  # noqa: E501
         )
 
 

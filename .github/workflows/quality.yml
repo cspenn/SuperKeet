@@ -37,12 +37,12 @@ jobs:
 
     - name: Lint with ruff
       run: |
-        ruff check src/ tests/ --output-format=github --statistics
-        ruff format --check src/ tests/
+        ruff check superkeet/ tests/ --output-format=github --statistics
+        ruff format --check superkeet/ tests/
 
     - name: Security scan with bandit
       run: |
-        bandit -r src/ -ll -x tests/
+        bandit -r superkeet/ -ll -x tests/
 
     - name: Check for security vulnerabilities
       run: |
@@ -52,10 +52,10 @@ jobs:
     - name: Check code complexity
       run: |
         pip install radon
-        radon cc src/ --min=C --show-complexity
-        radon mi src/ --min=B --show
+        radon cc superkeet/ --min=C --show-complexity
+        radon mi superkeet/ --min=B --show
 
     - name: Dead code detection
       run: |
         pip install vulture
-        vulture src/ --min-confidence=80 || echo "Vulture scan completed"
+        vulture superkeet/ --min-confidence=80 || echo "Vulture scan completed"

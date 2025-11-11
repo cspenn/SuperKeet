@@ -43,12 +43,12 @@ jobs:
 
     - name: Run security scan with bandit
       run: |
-        bandit -r src/ -f json -o bandit-report.json || true
-        bandit -r src/ -ll --exit-zero
+        bandit -r superkeet/ -f json -o bandit-report.json || true
+        bandit -r superkeet/ -ll --exit-zero
 
     - name: Run linting with ruff
       run: |
-        ruff check src/ tests/ --output-format=github
+        ruff check superkeet/ tests/ --output-format=github
 
     - name: Run tests with pytest
       run: |
@@ -67,7 +67,7 @@ jobs:
 
     - name: Run application smoke test
       run: |
-        timeout 10s python src/main.py --help || echo "Application started successfully"
+        timeout 10s python superkeet/main.py --help || echo "Application started successfully"
       env:
         QT_QPA_PLATFORM: offscreen
 
@@ -125,18 +125,18 @@ jobs:
 
     - name: Advanced linting with ruff
       run: |
-        ruff check src/ tests/ --statistics
-        ruff format --check src/ tests/
+        ruff check superkeet/ tests/ --statistics
+        ruff format --check superkeet/ tests/
 
     - name: Security audit with bandit
       run: |
-        bandit -r src/ -f json -o bandit-report.json
-        bandit -r src/ -ll
+        bandit -r superkeet/ -f json -o bandit-report.json
+        bandit -r superkeet/ -ll
 
     - name: Type checking with mypy (if configured)
       run: |
         if [ -f mypy.ini ] || [ -f setup.cfg ] || grep -q mypy pyproject.toml 2>/dev/null; then
-          mypy src/ --ignore-missing-imports || echo "MyPy check completed with warnings"
+          mypy superkeet/ --ignore-missing-imports || echo "MyPy check completed with warnings"
         else
           echo "MyPy configuration not found, skipping type checking"
         fi

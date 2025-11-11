@@ -1,3 +1,3 @@
-cd /users/cspenn/documents/github/superkeet
+cd /users/cspenn/documents/github/SuperKeet
 
-python -m src.main
+python -m superkeet.main

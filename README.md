@@ -42,12 +42,12 @@ SuperKeet is a FOSS voice-to-text application for macOS using the Parakeet-MLX A
 
 Run the application:
 ```bash
-python -m src.main
+python -m superkeet.main
 ```
 
 Or with Poetry:
 ```bash
-poetry run python -m src.main
+poetry run python -m superkeet.main
 ```
 
 ## Default Hotkey

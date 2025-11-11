@@ -73,7 +73,7 @@ Grant these permissions in System Preferences > Security & Privacy.
 ### 7. Run SuperKeet
 
 ```bash
-poetry run python -m src.main
+poetry run python -m superkeet.main
 ```
 
 ## Troubleshooting
@@ -82,7 +82,7 @@ poetry run python -m src.main
 If you get import errors, ensure you're running with Poetry:
 ```bash
 poetry shell  # Enter Poetry environment
-python -m src.main
+python -m superkeet.main
 ```
 
 ### Audio Device Issues

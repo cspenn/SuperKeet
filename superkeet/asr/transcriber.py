@@ -83,11 +83,11 @@ class ASRTranscriber:
 
         self.last_used_time = time.time()
 
-    def _get_cache_dir(self) -> Path:
+    def _get_cache_dir(self) -> str:
         """Get the Hugging Face cache directory.
 
         Returns:
-            Path to the cache directory.
+            String path to the cache directory.
         """
         # Check environment variables in order of priority
         cache_dir = (
@@ -97,10 +97,10 @@ class ASRTranscriber:
         )
 
         if cache_dir:
-            return Path(cache_dir)
+            return str(Path(cache_dir))
 
         # Default cache location
-        return Path.home() / ".cache" / "huggingface" / "hub"
+        return str(Path.home() / ".cache" / "huggingface" / "hub")
 
     def _is_model_cached(self) -> bool:
         """Check if the model is already cached locally.
@@ -108,7 +108,7 @@ class ASRTranscriber:
         Returns:
             True if model is cached, False otherwise.
         """
-        cache_dir = self._get_cache_dir()
+        cache_dir = Path(self._get_cache_dir())
         # Check if any model files exist in cache for this model ID
         model_hash = self.model_id.replace("/", "--")
         model_paths = list(cache_dir.glob(f"models--{model_hash}*"))
@@ -131,6 +131,7 @@ class ASRTranscriber:
             "model_loaded": self.model is not None,
             "rss_mb": memory_info.rss / 1024 / 1024,
             "vms_mb": memory_info.vms / 1024 / 1024,
+            "percent": process.memory_percent(),
             "last_used": self.last_used_time,
             "auto_unload_timeout": self.auto_unload_timeout,
             "garbage_collected_objects": len(gc.get_objects()),
@@ -267,8 +268,12 @@ class ASRTranscriber:
             logger.info("Model not loaded - auto-reloading for transcription")
             self.load_model()
 
-        if audio_data.size == 0:
-            logger.warning("Empty audio data provided")
+        # Determine actual input sample rate early for validation
+        actual_rate = input_sample_rate or self.expected_sample_rate
+
+        # Validate audio data before processing
+        if not self._validate_audio_for_asr(audio_data, actual_rate):
+            logger.warning("Audio validation failed - returning empty string")
             return ""
 
         # Update usage timestamp
@@ -276,13 +281,8 @@ class ASRTranscriber:
 
         temp_path = None
         try:
-            # Determine actual input sample rate
-            actual_rate = input_sample_rate or self.expected_sample_rate
             duration = len(audio_data) / actual_rate
             logger.debug(f"🐛 Transcribing audio: {duration:.2f}s @ {actual_rate}Hz")
-
-            # Validate audio quality before processing
-            self._validate_audio_for_asr(audio_data, actual_rate)
 
             # Optimize resampling strategy
             if actual_rate == self.parakeet_native_rate:
@@ -345,13 +345,32 @@ class ASRTranscriber:
 
     def _validate_audio_for_asr(
         self, audio_data: np.ndarray, input_sample_rate: int
-    ) -> None:
+    ) -> bool:
         """Validate audio data before ASR processing.
 
         Args:
             audio_data: Audio data to validate.
             input_sample_rate: Sample rate of the input audio
+
+        Returns:
+            True if audio is valid, False otherwise
         """
+        # Check None FIRST
+        if audio_data is None:
+            logger.warning("Audio data is None")
+            return False
+
+        # Check if it's a numpy array
+        if not isinstance(audio_data, np.ndarray):
+            logger.warning(f"Invalid audio type: {type(audio_data)}")
+            return False
+
+        # Check if array is empty
+        if audio_data.size == 0:
+            logger.warning("Audio array is empty")
+            return False
+
+        # NOW safe to do math operations
         # Calculate audio statistics
         rms = np.sqrt(np.mean(audio_data**2))
         peak = np.max(np.abs(audio_data))
@@ -377,6 +396,8 @@ class ASRTranscriber:
         logger.debug(
             f"🟢 ASR audio validation: Duration={duration:.2f}s, RMS={rms:.4f}, Peak={peak:.4f}"  # noqa: E501
         )
+
+        return True
 
     def _report_resampling_strategy(self) -> None:
         """Report the resampling strategy for this ASR configuration."""

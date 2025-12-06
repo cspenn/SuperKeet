@@ -6,6 +6,9 @@ authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [{include = "superkeet"}]
 
+[tool.poetry.scripts]
+superkeet = "superkeet.main:main"
+
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
 parakeet-mlx = "^0.3.0"
@@ -91,6 +94,11 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+ignore_errors = true
 
 [tool.bandit]
 exclude_dirs = ["tests"]

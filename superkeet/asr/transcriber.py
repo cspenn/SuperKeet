@@ -146,8 +146,6 @@ class ASRTranscriber:
 
         try:
             import gc
-            import threading
-            import time
 
             from tqdm import tqdm
 
@@ -168,73 +166,19 @@ class ASRTranscriber:
                 logger.info("Model loaded successfully")
 
             else:
+                # Simple, blocking download/load
                 logger.info(f"Model not found in cache. Downloading: {self.model_id}")
                 logger.info(
                     "This may take a few minutes for the first download (~600MB)"
                 )
 
-                # Create progress bar for download and loading
-                progress_bar = tqdm(
-                    total=100,
-                    desc="Downloading and loading model",
-                    unit="%",
-                    bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} "
-                    "[{elapsed}<{remaining}]",
-                )
-
-                download_complete = threading.Event()
-                download_error = None
-
-                def simulate_download_progress():
-                    """Simulate download progress until actual download completes."""
-                    progress = 0
-                    while not download_complete.is_set() and progress < 95:
-                        time.sleep(0.5)  # Update every 500ms
-                        if progress < 50:
-                            progress += 1  # Faster initial progress for download
-                        elif progress < 80:
-                            progress += 0.5  # Moderate progress
-                        else:
-                            progress += 0.2  # Slower near end
-
-                        progress_bar.n = min(int(progress), 95)
-                        progress_bar.refresh()
-
-                def download_worker():
-                    """Worker thread for actual model download and loading."""
-                    nonlocal download_error
-                    try:
-                        # Load model (will download if not cached)
-                        self.model = from_pretrained(self.model_id)
-
-                    except Exception as e:
-                        download_error = e
-                    finally:
-                        download_complete.set()
-
-                # Start download in background thread
-                download_thread = threading.Thread(target=download_worker, daemon=True)
-                progress_thread = threading.Thread(
-                    target=simulate_download_progress, daemon=True
-                )
-
-                download_thread.start()
-                progress_thread.start()
-
-                # Wait for download to complete
-                download_thread.join()
-
-                # Complete progress bar
-                progress_bar.n = 100
-                progress_bar.refresh()
-                progress_bar.close()
-
-                # Check for errors
-                if download_error:
-                    raise download_error
-
-                logger.info("Model downloaded and cached successfully")
-                logger.info("Model loaded successfully")
+                try:
+                    self.model = from_pretrained(self.model_id)
+                    logger.info("Model downloaded and cached successfully")
+                    logger.info("Model loaded successfully")
+                except Exception as e:
+                    logger.error(f"Failed to download/load model: {e}")
+                    raise
 
             # Update usage timestamp
             self._update_last_used()

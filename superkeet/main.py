@@ -3,14 +3,11 @@
 
 import signal
 import sys
-from pathlib import Path
 
 from superkeet.ui.tray_app import SuperKeetApp
 from superkeet.utils.logger import setup_logger
 
-# Add project root to path for absolute imports
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# Add local path handling handled by poetry/pip module installation
 
 logger = setup_logger(__name__)
 

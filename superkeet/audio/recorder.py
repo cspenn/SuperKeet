@@ -99,8 +99,8 @@ class AudioRecorder(QObject):
         # Validate sample rate compatibility
         self._validate_sample_rate_compatibility()
 
-        # Detect PortAudio capabilities for future compatibility
-        self._detect_portaudio_capabilities()
+        # Validate sample rate compatibility
+        self._validate_sample_rate_compatibility()
 
     def _validate_microphone_permissions(self) -> bool:
         """Validate microphone permissions with macOS-specific handling.
@@ -350,227 +350,7 @@ class AudioRecorder(QObject):
             logger.error(f"🔄 PortAudio reinitialization failed: {e}")
             return False
 
-    def _try_alternative_backends(self) -> bool:
-        """Try alternative audio backends when PortAudio fails.
-
-        Returns:
-            True if an alternative backend successfully started recording, False otherwise.
-        """
-        logger.info("🔄 Attempting alternative audio backends...")
-
-        # List of alternative backend strategies to try
-        alternatives = [
-            ("PyAudio Backend", self._try_pyaudio_backend),
-            ("Core Audio Direct", self._try_coreaudio_direct),
-            ("System Audio Units", self._try_system_audio_units),
-        ]
-
-        for backend_name, backend_func in alternatives:
-            try:
-                logger.debug(f"🔄 Trying {backend_name}...")
-                if backend_func():
-                    logger.info(
-                        f"🟢 Successfully started recording with {backend_name}"
-                    )
-                    return True
-            except Exception as e:
-                logger.debug(f"{backend_name} failed: {e}")
-                continue
-
-        logger.warning("🔄 All alternative audio backends failed")
-        return False
-
-    def _try_pyaudio_backend(self) -> bool:
-        """Try using PyAudio as an alternative to sounddevice.
-
-        Returns:
-            True if PyAudio backend started successfully, False otherwise.
-        """
-        try:
-            import pyaudio
-
-            logger.debug("🎙️ Attempting PyAudio backend...")
-
-            # Initialize PyAudio
-            pa = pyaudio.PyAudio()
-
-            # Get default input device
-            default_device = pa.get_default_input_device_info()
-            logger.debug(f"PyAudio default device: {default_device['name']}")
-
-            # Test different configurations
-            pyaudio_configs = [
-                {
-                    "rate": 16000,
-                    "channels": 1,
-                    "chunk": 1024,
-                    "format": pyaudio.paInt16,
-                },
-                {
-                    "rate": 44100,
-                    "channels": 1,
-                    "chunk": 1024,
-                    "format": pyaudio.paInt16,
-                },
-                {
-                    "rate": 48000,
-                    "channels": 1,
-                    "chunk": 2048,
-                    "format": pyaudio.paFloat32,
-                },
-            ]
-
-            for config in pyaudio_configs:
-                try:
-                    # Test stream creation
-                    test_stream = pa.open(
-                        format=config["format"],
-                        channels=config["channels"],
-                        rate=config["rate"],
-                        input=True,
-                        frames_per_buffer=config["chunk"],
-                        input_device_index=None,  # Use default
-                    )
-
-                    # Close test stream
-                    test_stream.close()
-
-                    logger.info(f"🟢 PyAudio backend available with config: {config}")
-
-                    # Clean up PyAudio
-                    pa.terminate()
-
-                    # Set up a flag to indicate we should use PyAudio
-                    # (In a full implementation, we'd create a PyAudio-based recording loop)
-                    self._alternative_backend = "pyaudio"
-                    self._alternative_config = config
-
-                    return True
-
-                except Exception as e:
-                    logger.debug(f"PyAudio config {config} failed: {e}")
-                    continue
-
-            # Clean up PyAudio if all configs failed
-            pa.terminate()
-            return False
-
-        except ImportError:
-            logger.debug("🎙️ PyAudio not available (not installed)")
-            return False
-        except Exception as e:
-            logger.debug(f"🎙️ PyAudio backend failed: {e}")
-            return False
-
-    def _try_coreaudio_direct(self) -> bool:
-        """Try direct Core Audio access on macOS.
-
-        Returns:
-            True if Core Audio direct access works, False otherwise.
-        """
-        try:
-            import platform
-            import subprocess
-
-            # Only available on macOS
-            if platform.system() != "Darwin":
-                logger.debug("Core Audio only available on macOS")
-                return False
-
-            logger.debug("🍎 Attempting Core Audio direct access...")
-
-            # Test if we can access Core Audio through system commands
-            try:
-                # Check if we can list audio devices using system_profiler
-                result = subprocess.run(
-                    ["system_profiler", "SPAudioDataType"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-
-                if result.returncode == 0 and "Audio (Built-in)" in result.stdout:
-                    logger.debug("🍎 Core Audio devices detected via system_profiler")
-
-                    # Try to use 'rec' command if available (from sox)
-                    try:
-                        rec_test = subprocess.run(
-                            ["rec", "--help"], capture_output=True, text=True, timeout=5
-                        )
-
-                        if rec_test.returncode == 0:
-                            logger.info(
-                                "🟢 Core Audio direct access via 'rec' command available"
-                            )
-                            self._alternative_backend = "coreaudio_rec"
-                            return True
-                    except FileNotFoundError:
-                        logger.debug("'rec' command not available")
-
-                    # Set up flag for potential Core Audio implementation
-                    self._alternative_backend = "coreaudio_system"
-                    return True
-
-            except subprocess.TimeoutExpired:
-                logger.debug("system_profiler timeout")
-            except FileNotFoundError:
-                logger.debug("system_profiler not available")
-
-            return False
-
-        except Exception as e:
             logger.debug(f"🍎 Core Audio direct access failed: {e}")
-            return False
-
-    def _try_system_audio_units(self) -> bool:
-        """Try using system audio units or alternative system-level audio access.
-
-        Returns:
-            True if system audio units work, False otherwise.
-        """
-        try:
-            import platform
-            import subprocess
-
-            logger.debug("🔊 Attempting system audio units access...")
-
-            # Platform-specific approaches
-            if platform.system() == "Darwin":  # macOS
-                # Try using afplay/afrecord if available
-                try:
-                    # Check for afplay (which suggests afrecord might be available)
-                    result = subprocess.run(
-                        ["which", "afplay"], capture_output=True, text=True, timeout=5
-                    )
-
-                    if result.returncode == 0:
-                        logger.debug("🔊 macOS audio framework tools available")
-                        self._alternative_backend = "macos_audio_framework"
-                        return True
-                except (FileNotFoundError, subprocess.TimeoutExpired):
-                    pass
-
-            elif platform.system() == "Linux":  # Linux
-                # Try ALSA or PulseAudio
-                try:
-                    # Check for arecord (ALSA)
-                    result = subprocess.run(
-                        ["which", "arecord"], capture_output=True, text=True, timeout=5
-                    )
-
-                    if result.returncode == 0:
-                        logger.debug("🔊 ALSA tools available")
-                        self._alternative_backend = "alsa"
-                        return True
-                except (FileNotFoundError, subprocess.TimeoutExpired):
-                    pass
-
-            # Generic fallback: try to detect any audio recording capability
-            logger.debug("🔊 No specific system audio units found")
-            return False
-
-        except Exception as e:
-            logger.debug(f"🔊 System audio units access failed: {e}")
             return False
 
     def _audio_callback(
@@ -645,12 +425,10 @@ class AudioRecorder(QObject):
         logger.info("🔒 Validating microphone permissions...")
         if not self._validate_microphone_permissions():
             logger.error("🔒 Microphone permissions validation failed")
-            self._suggest_audio_fixes()
+        if not self._validate_microphone_permissions():
+            logger.error("🔒 Microphone permissions validation failed")
+            # Don't suggest complex fixes, just fail gracefully
             return False
-
-        # Initialize alternative backend tracking
-        self._alternative_backend = None
-        self._alternative_config = None
 
         try:
             # Clear any previous data and reset counters
@@ -784,30 +562,10 @@ class AudioRecorder(QObject):
 
                 # Strategy 3: Try alternative configurations
                 if self._try_alternative_configs():
-                    logger.info("🟢 Recovery successful via configuration fallback")
-                    return True
-            else:
-                # We were already using default device - try alternative configs
-                logger.warning(
-                    "Default device failed - trying alternative configurations..."
-                )
-                if self._try_alternative_configs():
                     logger.info("🟢 Recovery successful via alternative configuration")
                     return True
 
-            # Phase 4: Alternative audio backends
-            logger.info("🔄 Phase 4: Attempting alternative audio backends...")
-            if self._try_alternative_backends():
-                logger.info("🟢 Recovery successful via alternative backend")
-                # Note: Alternative backends require different recording implementation
-                # For now, we just flag that an alternative is available
-                logger.warning(
-                    "⚠️ Alternative backend available but full implementation pending"
-                )
-                return True
-
-            # All recovery strategies failed
-            logger.error("❌ All enhanced recovery strategies failed")
+            logger.error("❌ Failed to start recording after recovery attempts")
             self._suggest_audio_fixes()
             return self._cleanup_failed_start()
 
@@ -1904,7 +1662,7 @@ class AudioRecorder(QObject):
         logger.info("🧪 TEST SUMMARY:")
         logger.info(f"   Total tests: {total_tests}")
         logger.info(f"   Passed: {passed_tests}")
-        logger.info(f"   Success rate: {passed_tests/total_tests*100:.1f}%")
+        logger.info(f"   Success rate: {passed_tests / total_tests * 100:.1f}%")
 
         # Detailed results
         for test_name, result in test_results.items():
@@ -2012,9 +1770,9 @@ class AudioRecorder(QObject):
         ):
             # Only add if explicitly requested and supported
             if "prime_output_buffers_using_stream_callback" in base_params:
-                stream_params[
-                    "prime_output_buffers_using_stream_callback"
-                ] = base_params["prime_output_buffers_using_stream_callback"]
+                stream_params["prime_output_buffers_using_stream_callback"] = (
+                    base_params["prime_output_buffers_using_stream_callback"]
+                )
                 logger.debug(
                     "🟢 Using prime_output_buffers_using_stream_callback parameter"
                 )

@@ -17,8 +17,10 @@ from superkeet.text.injector import TextInjector
 from superkeet.ui.first_run_dialog import FirstRunDialog
 from superkeet.ui.main_window import MainWindow
 from superkeet.ui.settings_dialog import SettingsDialog
+from superkeet.ui.settings_dialog import SettingsDialog
 from superkeet.utils.logger import setup_logger
 from superkeet.utils.transcript_logger import TranscriptLogger
+from superkeet.config.config_loader import config
 
 logger = setup_logger(__name__)
 
@@ -100,6 +102,10 @@ class SuperKeetApp:
 
         # Worker thread
         self.asr_worker: Optional[ASRWorker] = None
+        
+        # Dock menus (Optional because they might fail to init or be deleted)
+        self.dock_menu: Optional[QMenu] = None
+        self.dock_recent_menu: Optional[QMenu] = None
 
         # Transcript logger
         self.transcript_logger = TranscriptLogger()
@@ -110,6 +116,14 @@ class SuperKeetApp:
         self._setup_ui()
         self._setup_dock()
         self._connect_signals()
+
+        # Watchdog for ASR timeout
+        from PySide6.QtCore import QTimer
+
+        self.asr_watchdog = QTimer()
+        self.asr_watchdog.setSingleShot(True)
+        self.asr_watchdog.timeout.connect(self._on_watchdog_timeout)
+        self.asr_watchdog_limit = config.get("app.asr_timeout_seconds", 30) * 1000
 
         # Check for first-run experience
         self._check_first_run()
@@ -385,6 +399,9 @@ class SuperKeetApp:
         self.asr_worker.error_occurred.connect(self._on_transcription_error)
         self.asr_worker.start()
 
+        # Start watchdog
+        self.asr_watchdog.start(self.asr_watchdog_limit)
+
     @Slot(str)
     def _on_transcription_complete(self, text: str) -> None:
         """Handle transcription completion with robust error handling.
@@ -424,6 +441,7 @@ class SuperKeetApp:
             logger.debug("Resetting state to IDLE")
             self.state = AppState.IDLE
             self._update_status()
+            self.asr_watchdog.stop()  # Stop watchdog
             self._cleanup_worker()
 
     def _cleanup_worker(self) -> None:
@@ -502,7 +520,14 @@ class SuperKeetApp:
             logger.debug("Resetting state to IDLE after error")
             self.state = AppState.IDLE
             self._update_icon()
+            self.asr_watchdog.stop()  # Stop watchdog
             self._cleanup_worker()
+
+    @Slot()
+    def _on_watchdog_timeout(self) -> None:
+        """Handle ASR watchdog timeout."""
+        logger.error("🛑 ASR processing timed out - forcing cleanup")
+        self._on_transcription_error("Processing timed out (stalled)")
 
     @Slot()
     def _on_show_window(self) -> None:
@@ -602,24 +627,19 @@ class SuperKeetApp:
         """Handle quit action."""
         logger.info("Quit requested")
         self.cleanup()
-        self.app.quit()
+        if self.app:
+            self.app.quit()
 
     def run(self) -> None:
         """Run the application."""
         try:
-            # Check if model needs downloading
-            logger.info("🔍 Checking model cache status...")
-            if not self.asr_transcriber._is_model_cached():
-                if self.tray_icon.supportsMessages():
-                    self.tray_icon.showMessage(
-                        "SuperKeet",
-                        "Downloading ASR model (~600MB). This is a one-time download...",  # noqa: E501
-                        QSystemTrayIcon.MessageIcon.Information,
-                        5000,
-                    )
+            # Perform startup checks
+            if not self._perform_startup_checks():
+                logger.error("🛑 Startup checks failed")
+                return 1
 
             # Load ASR model with progress feedback
-            logger.info("🔄 Loading ASR model...")
+            logger.info("🔄 Loading ASR model and checking cache...")
 
             # Show loading notification
             if self.tray_icon.supportsMessages():
@@ -658,9 +678,11 @@ class SuperKeetApp:
 
             # Run event loop
             logger.info("🚀 Starting Qt application event loop...")
-            exit_code = self.app.exec()
-            logger.info(f"📋 Application event loop exited with code: {exit_code}")
-            return exit_code
+            if self.app:
+                exit_code = self.app.exec()
+                logger.info(f"📋 Application event loop exited with code: {exit_code}")
+                return exit_code
+            return 1
 
         except KeyboardInterrupt:
             logger.info("⛔ Application interrupted by user")
@@ -720,13 +742,46 @@ class SuperKeetApp:
         except Exception as e:
             logger.warning(f"⚠️ Error hiding tray icon: {e}")
 
-        # Force garbage collection
         import gc
 
         collected = gc.collect()
         logger.info(f"🗑️ Garbage collection: {collected} objects collected")
 
         logger.info("✅ Application cleanup completed")
+
+    def _perform_startup_checks(self) -> bool:
+        """Perform critical startup checks.
+
+        Returns:
+            True if all checks passed, False otherwise.
+        """
+        logger.info("🔍 Performing startup checks...")
+
+        # Check 1: PortAudio/sounddevice availability
+        try:
+            import sounddevice as sd
+
+            sd.query_devices()
+            logger.info("✅ Audio system initialized")
+        except Exception as e:
+            logger.error(f"🛑 Audio system check failed: {e}")
+            if "Error -9986" in str(e):
+                logger.error(
+                    "  -> Hint: PortAudio library mismatch. Check Homebrew installation."
+                )
+            return False
+
+        # Check 2: FFmpeg (needed by soundfile/parakeet often)
+        try:
+            import subprocess
+
+            subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+            logger.info("✅ FFmpeg available")
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            logger.warning("⚠️ FFmpeg not found or error. Audio conversion might fail.")
+            # We don't fail hard here as soundfile might have wheels, but it's good to know
+
+        return True
 
 
 # end src/ui/tray_app.py

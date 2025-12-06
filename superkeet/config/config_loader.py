@@ -162,30 +162,10 @@ class ConfigLoader:
 
     def _validate_config(self) -> None:
         """Validate the loaded configuration using Pydantic schemas."""
-        try:
-            from .validators import validate_config
+        # Pydantic is a hard dependency for quality control - fail fast if missing
+        from .validators import validate_config
 
-            self.validated_config = validate_config(self.config)
-        except ImportError:
-            # Skip validation if pydantic is not available
-            try:
-                from superkeet.utils.logger import setup_logger
-
-                logger = setup_logger(__name__)
-                logger.warning(
-                    "Pydantic not available, skipping configuration validation"
-                )
-            except ImportError:
-                pass
-        except Exception as e:
-            try:
-                from superkeet.utils.logger import setup_logger
-
-                logger = setup_logger(__name__)
-                logger.error(f"Configuration validation failed: {e}")
-            except ImportError:
-                pass
-            # Continue with unvalidated config but log the error
+        self.validated_config = validate_config(self.config)
 
     def _create_backup(self) -> None:
         """Create a backup of the current configuration file."""

@@ -21,8 +21,11 @@ brew install ffmpeg
 brew install python@3.11
 ```
 
-### 2. Install Poetry
+### 2. Install Dependency Manager
 
+SuperKeet supports both **Poetry** (stable) and **UV** (fast). Choose one:
+
+**Option A: Poetry (Recommended for most users)**
 ```bash
 curl -sSL https://install.python-poetry.org | python3 -
 ```
@@ -32,16 +35,27 @@ Add Poetry to your PATH (add to ~/.zshrc or ~/.bash_profile):
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+**Option B: UV (Recommended for speed)**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 ### 3. Clone and Setup Project
 
 ```bash
 # Clone the repository (or navigate to your project directory)
 cd /Users/cspenn/Documents/github/superkeet
 
-# Install Python dependencies
+# Quick setup (automatically detects UV or Poetry)
+./setup.sh
+
+# Or manually with Poetry:
 poetry install
 
-# Copy credentials template
+# Or manually with UV:
+./install-uv.sh
+
+# Copy credentials template (if not done automatically)
 cp credentials.yml.dist credentials.yml
 
 # Make check script executable
@@ -72,17 +86,58 @@ Grant these permissions in System Preferences > Security & Privacy.
 
 ### 7. Run SuperKeet
 
+**Using the launcher (easiest)**:
+```bash
+./startkeet.command
+```
+
+**Manual launch with Poetry**:
 ```bash
 poetry run python -m superkeet.main
 ```
 
+**Manual launch with UV**:
+```bash
+source .venv/bin/activate
+python -m superkeet.main
+```
+
 ## Troubleshooting
 
-### Import Errors
-If you get import errors, ensure you're running with Poetry:
+### Dependency Errors
+
+If you encounter errors like `ImportError: Numba needs NumPy 2.2 or less`:
+
 ```bash
+# Quick fix - run the setup script
+./setup.sh
+
+# Or reset your environment:
+# For Poetry:
+poetry env remove --all
+poetry install
+
+# For UV:
+rm -rf .venv
+./install-uv.sh
+```
+
+For comprehensive troubleshooting and dependency management information, see:
+📖 **[Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md)**
+
+### Import Errors
+If you get import errors, ensure you're running in a virtual environment:
+```bash
+# With Poetry:
 poetry shell  # Enter Poetry environment
 python -m superkeet.main
+
+# With UV:
+source .venv/bin/activate
+python -m superkeet.main
+
+# Or just use the launcher:
+./startkeet.command
 ```
 
 ### Audio Device Issues

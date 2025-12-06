@@ -34,7 +34,7 @@ asr:
   chunk_duration: 60.0  # Duration of each processing chunk in seconds
 # Hotkey settings
 hotkey:
-  combination: "ctrl+shift+h"
+  combination: "ctrl+space"
 # UI settings
 ui:
   icon_idle: "🎙"
@@ -49,7 +49,7 @@ text:
 
 # Transcript settings
 transcripts:
-  enabled: false  # Save transcripts to disk
+  enabled: true   # Save transcripts to disk
   directory: "transcripts"  # Directory to save transcripts
   format: "text"  # "text" or "json"
 

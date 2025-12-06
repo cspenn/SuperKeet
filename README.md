@@ -13,6 +13,20 @@ SuperKeet is a FOSS voice-to-text application for macOS using the Parakeet-MLX A
 
 ## Installation
 
+### Quick Setup (Recommended)
+
+The easiest way to get started:
+
+```bash
+./setup.sh
+```
+
+This will automatically detect if you have UV or Poetry installed and set up the dependencies.
+
+### Manual Setup
+
+#### Option 1: Poetry (Stable)
+
 1. Install Poetry if you haven't already:
    ```bash
    curl -sSL https://install.python-poetry.org | python3 -
@@ -22,6 +36,20 @@ SuperKeet is a FOSS voice-to-text application for macOS using the Parakeet-MLX A
    ```bash
    poetry install
    ```
+
+#### Option 2: UV (Fast)
+
+1. Install UV:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Run the UV installer:
+   ```bash
+   ./install-uv.sh
+   ```
+
+### Additional Setup
 
 3. Create credentials file from template:
    ```bash
@@ -36,18 +64,32 @@ SuperKeet is a FOSS voice-to-text application for macOS using the Parakeet-MLX A
 5. Download the ASR model (optional - will auto-download on first use):
    ```bash
    poetry run python download_model.py
+   # or with UV:
+   source .venv/bin/activate && python download_model.py
    ```
 
 ## Usage
 
-Run the application:
+### Using the Launcher (Easiest)
+
+Simply run:
 ```bash
-python -m superkeet.main
+./startkeet.command
 ```
 
-Or with Poetry:
+The launcher will automatically detect and activate your virtual environment.
+
+### Manual Launch
+
+With Poetry:
 ```bash
 poetry run python -m superkeet.main
+```
+
+With UV:
+```bash
+source .venv/bin/activate
+python -m superkeet.main
 ```
 
 ## Default Hotkey
@@ -64,6 +106,35 @@ Edit `config.yml` to customize:
 - ASR model
 - UI icons
 - Logging level
+
+## Dependency Management
+
+SuperKeet uses isolated virtual environments to prevent dependency conflicts. We support both Poetry and UV for dependency management.
+
+### Troubleshooting
+
+If you encounter dependency errors (like `ImportError: Numba needs NumPy 2.2 or less`):
+
+1. **Quick fix**: Run the setup script
+   ```bash
+   ./setup.sh
+   ```
+
+2. **Poetry fix**: Reset the environment
+   ```bash
+   poetry env remove --all
+   poetry install
+   ```
+
+3. **UV fix**: Recreate the environment
+   ```bash
+   rm -rf .venv
+   ./install-uv.sh
+   ```
+
+For detailed information about dependency management, troubleshooting, and best practices, see:
+
+📖 **[Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md)**
 
 ## Development
 

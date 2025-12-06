@@ -48,37 +48,12 @@ class FileManager:
             if not files:
                 return 0
 
-            files_removed = 0
-            current_time = time.time()
-            cutoff_time = current_time - (retention_days * 24 * 3600)
-
-            # Sort files by modification time (oldest first)
-            files.sort(key=lambda f: f.stat().st_mtime)
-
             # Remove files older than retention period
-            for file_path in files:
-                if file_path.stat().st_mtime < cutoff_time:
-                    try:
-                        file_path.unlink()
-                        files_removed += 1
-                        logger.debug(f"🗑️ Removed old file: {file_path.name}")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Failed to remove {file_path.name}: {e}")
+            files_removed = self._compute_age_cleanup(files, retention_days)
 
             # If max_files is set, remove excess files (keep newest)
             if max_files is not None:
-                remaining_files = [f for f in files if f.exists()]
-                remaining_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-
-                if len(remaining_files) > max_files:
-                    excess_files = remaining_files[max_files:]
-                    for file_path in excess_files:
-                        try:
-                            file_path.unlink()
-                            files_removed += 1
-                            logger.debug(f"🗑️ Removed excess file: {file_path.name}")
-                        except Exception as e:
-                            logger.warning(f"⚠️ Failed to remove {file_path.name}: {e}")
+                files_removed += self._compute_count_cleanup(file_pattern, max_files)
 
             if files_removed > 0:
                 logger.info(
@@ -86,6 +61,53 @@ class FileManager:
                 )
 
             return files_removed
+
+        except Exception as e:
+            logger.error(f"🛑 File cleanup failed: {e}")
+            return 0
+
+    def _compute_age_cleanup(self, files: List[Path], retention_days: int) -> int:
+        """Remove files older than retention period."""
+        files_removed = 0
+        current_time = time.time()
+        cutoff_time = current_time - (retention_days * 24 * 3600)
+
+        # Sort by modification time (oldest first)
+        files.sort(key=lambda f: f.stat().st_mtime)
+
+        for file_path in files:
+            if file_path.stat().st_mtime < cutoff_time:
+                if self._safe_delete_file(file_path):
+                    files_removed += 1
+        return files_removed
+
+    def _compute_count_cleanup(self, file_pattern: str, max_files: int) -> int:
+        """Remove excess files beyond max_files limit."""
+        files_removed = 0
+        current_files = list(self.base_directory.glob(file_pattern))
+        remaining_files = [f for f in current_files if f.exists()]
+        remaining_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+
+        if len(remaining_files) > max_files:
+            excess_files = remaining_files[max_files:]
+            for file_path in excess_files:
+                if self._safe_delete_file(file_path):
+                    files_removed += 1
+        return files_removed
+
+    def _safe_delete_file(self, file_path: Path) -> bool:
+        """Safely delete a file and log the result.
+
+        Returns:
+            True if deletion was successful, False otherwise.
+        """
+        try:
+            file_path.unlink()
+            logger.debug(f"🗑️ Removed file: {file_path.name}")
+            return True
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to remove {file_path.name}: {e}")
+            return False
 
         except Exception as e:
             logger.error(f"🛑 File cleanup failed: {e}")

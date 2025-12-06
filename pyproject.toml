@@ -39,6 +39,7 @@ pytest-mock = "^3.12.0"
 bandit = "^1.7.5"
 pre-commit = "^3.5.0"
 pyinstaller = "^6.15.0"
+radon = "^6.0.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -225,43 +225,8 @@ class ASRTranscriber:
 
         temp_path = None
         try:
-            duration = len(audio_data) / actual_rate
-            logger.debug(f"🐛 Transcribing audio: {duration:.2f}s @ {actual_rate}Hz")
-
-            # Optimize resampling strategy
-            if actual_rate == self.parakeet_native_rate:
-                # OPTIMAL: No resampling needed!
-                logger.debug(
-                    "🟢 OPTIMAL: Audio already at 16kHz - no resampling needed"
-                )
-                audio_data = audio_data.astype(np.float32)
-                target_sample_rate = self.parakeet_native_rate
-            elif actual_rate != self.parakeet_native_rate:
-                # Resample to Parakeet native rate
-                logger.debug(
-                    f"🟡 Resampling audio from {actual_rate}Hz to "
-                    f"{self.parakeet_native_rate}Hz"
-                )
-                audio_data = self._resample_audio(
-                    audio_data, actual_rate, self.parakeet_native_rate
-                )
-                target_sample_rate = self.parakeet_native_rate
-            else:
-                target_sample_rate = actual_rate
-
-            # Ensure audio is float32
-            if audio_data.dtype != np.float32:
-                audio_data = audio_data.astype(np.float32)
-
-            # Normalize audio to [-1, 1] range if needed
-            if np.abs(audio_data).max() > 1.0:
-                audio_data = audio_data / np.abs(audio_data).max()
-
-            # Save audio to temporary file using target sample rate
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-                temp_path = temp_file.name
-                sf.write(temp_path, audio_data, target_sample_rate)
-                logger.debug(f"Saved audio to temporary file: {temp_path}")
+            # Prepare audio file for transcription
+            temp_path = self._prepare_audio_for_transcription(audio_data, actual_rate)
 
             # Transcribe from file
             result = self.model.transcribe(temp_path)
@@ -403,6 +368,56 @@ class ASRTranscriber:
                 "Using original audio without resampling - may cause transcription errors"  # noqa: E501
             )
             return audio_data
+
+    def _prepare_audio_for_transcription(
+        self, audio_data: np.ndarray, actual_rate: int
+    ) -> str:
+        """Prepare audio data for transcription by resampling and saving to temp file.
+
+        Args:
+            audio_data: Input audio data.
+            actual_rate: Input sample rate.
+
+        Returns:
+            Path to the temporary audio file.
+        """
+        duration = len(audio_data) / actual_rate
+        logger.debug(f"🐛 Transcribing audio: {duration:.2f}s @ {actual_rate}Hz")
+
+        # Optimize resampling strategy
+        if actual_rate == self.parakeet_native_rate:
+            # OPTIMAL: No resampling needed!
+            logger.debug("🟢 OPTIMAL: Audio already at 16kHz - no resampling needed")
+            audio_data = audio_data.astype(np.float32)
+            target_sample_rate = self.parakeet_native_rate
+        elif actual_rate != self.parakeet_native_rate:
+            # Resample to Parakeet native rate
+            logger.debug(
+                f"🟡 Resampling audio from {actual_rate}Hz to {self.parakeet_native_rate}Hz"
+            )
+            audio_data = self._resample_audio(
+                audio_data, actual_rate, self.parakeet_native_rate
+            )
+            target_sample_rate = self.parakeet_native_rate
+        else:
+            target_sample_rate = actual_rate
+
+        # Ensure audio is float32
+        if audio_data.dtype != np.float32:
+            audio_data = audio_data.astype(np.float32)
+
+        # Normalize audio to [-1, 1] range if needed
+        max_val = np.abs(audio_data).max()
+        if max_val > 1.0:
+            audio_data = audio_data / max_val
+
+        # Save audio to temporary file using target sample rate
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+            temp_path = temp_file.name
+            sf.write(temp_path, audio_data, target_sample_rate)
+            logger.debug(f"Saved audio to temporary file: {temp_path}")
+
+        return temp_path
 
     def unload_model(self) -> None:
         """Unload the model from memory with garbage collection."""

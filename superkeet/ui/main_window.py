@@ -488,35 +488,9 @@ class MainWindow(QMainWindow):
         """Clean up all QTimer instances to prevent memory leaks."""
         logger.debug("🧹 Cleaning up MainWindow timers")
 
-        # Stop and clean up status dot timer
-        if hasattr(self, "_status_dot_timer") and self._status_dot_timer is not None:
-            try:
-                self._status_dot_timer.stop()
-                self._status_dot_timer.deleteLater()
-                self._status_dot_timer = None
-                logger.debug("✅ Status dot timer cleaned up")
-            except Exception as e:
-                logger.warning(f"⚠️ Error cleaning up status dot timer: {e}")
-
-        # Stop and clean up clipboard timer
-        if hasattr(self, "_clipboard_timer") and self._clipboard_timer is not None:
-            try:
-                self._clipboard_timer.stop()
-                self._clipboard_timer.deleteLater()
-                self._clipboard_timer = None
-                logger.debug("✅ Clipboard timer cleaned up")
-            except Exception as e:
-                logger.warning(f"⚠️ Error cleaning up clipboard timer: {e}")
-
-        # Stop and clean up processing timer
-        if hasattr(self, "_processing_timer") and self._processing_timer is not None:
-            try:
-                self._processing_timer.stop()
-                self._processing_timer.deleteLater()
-                self._processing_timer = None
-                logger.debug("✅ Processing timer cleaned up")
-            except Exception as e:
-                logger.warning(f"⚠️ Error cleaning up processing timer: {e}")
+        self._cleanup_timer("_status_dot_timer", "Status dot timer")
+        self._cleanup_timer("_clipboard_timer", "Clipboard timer")
+        self._cleanup_timer("_processing_timer", "Processing timer")
 
         # Clean up audio animation widget timers
         if hasattr(self, "audio_animation") and self.audio_animation is not None:
@@ -526,6 +500,24 @@ class MainWindow(QMainWindow):
                 logger.debug("✅ Audio animation timers cleaned up")
             except Exception as e:
                 logger.warning(f"⚠️ Error cleaning up audio animation: {e}")
+
+    def _cleanup_timer(self, timer_attr: str, debug_name: str) -> None:
+        """Clean up a specific timer attribute.
+
+        Args:
+            timer_attr: Name of the timer attribute
+            debug_name: Human readable name for logging
+        """
+        if hasattr(self, timer_attr):
+            timer = getattr(self, timer_attr)
+            if timer is not None:
+                try:
+                    timer.stop()
+                    timer.deleteLater()
+                    setattr(self, timer_attr, None)
+                    logger.debug(f"✅ {debug_name} cleaned up")
+                except Exception as e:
+                    logger.warning(f"⚠️ Error cleaning up {debug_name}: {e}")
 
     def closeEvent(self, event):  # noqa: N802
         """Handle window close event with proper cleanup."""

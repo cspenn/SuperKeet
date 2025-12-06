@@ -225,125 +225,144 @@ class AudioRecorder(QObject):
         Returns:
             True if PortAudio reinitialization and recording start succeeded, False otherwise.
         """
-        try:
-            logger.info("🔄 Attempting PortAudio reinitialization...")
+        logger.info("🔄 Attempting PortAudio reinitialization...")
 
-            # Step 1: Clean up any existing stream
+        # Step 1: Clean up any existing stream
+        if self.stream:
+            try:
+                if self.stream.active:
+                    self.stream.stop()
+                self.stream.close()
+            except Exception as e:
+                logger.debug(f"Error closing existing stream: {e}")
+            finally:
+                self.stream = None
+
+        # Step 2: Force PortAudio termination and reinitialization
+        self._force_portaudio_reinit()
+
+        # Step 3: Try different initialization parameters optimized for macOS
+        return self._execute_reinit_strategies()
+
+    def _force_portaudio_reinit(self) -> None:
+        """Force PortAudio to terminate and reinitialize."""
+        try:
+            # Terminate current PortAudio instance if possible
+            if hasattr(sd, "_terminate"):
+                sd._terminate()
+                logger.debug("🔄 PortAudio terminated")
+
+            # Small delay to allow cleanup
+            import time
+
+            time.sleep(0.1)
+
+            # Force reinitialization
+            if hasattr(sd, "_initialize"):
+                sd._initialize()
+                logger.debug("🔄 PortAudio reinitialized")
+
+        except Exception as e:
+            logger.debug(f"PortAudio reinit attempt (not critical): {e}")
+
+    def _execute_reinit_strategies(self) -> bool:
+        """Execute multiple PortAudio reinitialization strategies.
+
+        Returns:
+            True if any strategy succeeds, False otherwise.
+        """
+        reinit_strategies = [
+            # Strategy 1: macOS preferred rate with larger buffer
+            {
+                "device": None,  # Force default device
+                "channels": 1,
+                "samplerate": 44100,  # macOS preferred rate
+                "blocksize": 1024,
+                "dtype": np.float32,
+            },
+            # Strategy 2: Lower sample rate with minimal latency
+            {
+                "device": None,
+                "channels": 1,
+                "samplerate": 16000,
+                "blocksize": 512,
+                "dtype": np.float32,
+            },
+            # Strategy 3: High-quality with larger buffers
+            {
+                "device": None,
+                "channels": 1,
+                "samplerate": 48000,
+                "blocksize": 2048,
+                "dtype": np.float32,
+            },
+        ]
+
+        for i, strategy in enumerate(reinit_strategies, 1):
+            if self._try_single_reinit_strategy(strategy, i):
+                return True
+
+        logger.warning("🔄 All PortAudio reinitialization strategies failed")
+        return False
+
+    def _try_single_reinit_strategy(self, strategy: dict, strategy_index: int) -> bool:
+        """Try a single reinitialization strategy.
+
+        Args:
+            strategy: Dictionary of strategy parameters.
+            strategy_index: Index for logging.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            logger.debug(f"🔄 Trying reinit strategy {strategy_index}: {strategy}")
+
+            # Create stream with strategy parameters
+            self.stream = sd.InputStream(
+                device=strategy["device"],
+                channels=strategy["channels"],
+                samplerate=strategy["samplerate"],
+                blocksize=strategy["blocksize"],
+                callback=self._audio_callback,
+                dtype=strategy["dtype"],
+            )
+
+            # Try to start the stream
+            self.stream.start()
+
+            # Update recorder settings to match successful strategy
+            original_device = self.device
+            original_sample_rate = self.sample_rate
+            original_channels = self.channels
+            original_chunk_size = self.chunk_size
+
+            self.device = strategy["device"]
+            self.sample_rate = strategy["samplerate"]
+            self.channels = strategy["channels"]
+            self.chunk_size = strategy["blocksize"]
+            self.recording = True
+
+            logger.info(
+                f"🟢 PortAudio reinitialization successful with strategy {strategy_index}"
+            )
+            logger.info(
+                f"🔧 Audio settings updated: {original_sample_rate}Hz→{self.sample_rate}Hz, "
+                f"device {original_device}→{self.device}, "
+                f"{original_channels}ch→{self.channels}ch, "
+                f"blocksize {original_chunk_size}→{self.chunk_size}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.debug(f"Reinit strategy {strategy_index} failed: {e}")
             if self.stream:
                 try:
-                    if self.stream.active:
-                        self.stream.stop()
                     self.stream.close()
-                except Exception as e:
-                    logger.debug(f"Error closing existing stream: {e}")
-                finally:
-                    self.stream = None
-
-            # Step 2: Force PortAudio termination and reinitialization
-            try:
-                # Terminate current PortAudio instance if possible
-                if hasattr(sd, "_terminate"):
-                    sd._terminate()
-                    logger.debug("🔄 PortAudio terminated")
-
-                # Small delay to allow cleanup
-                import time
-
-                time.sleep(0.1)
-
-                # Force reinitialization
-                if hasattr(sd, "_initialize"):
-                    sd._initialize()
-                    logger.debug("🔄 PortAudio reinitialized")
-
-            except Exception as e:
-                logger.debug(f"PortAudio reinit attempt (not critical): {e}")
-
-            # Step 3: Try different initialization parameters optimized for macOS
-            reinit_strategies = [
-                # Strategy 1: macOS preferred rate with larger buffer
-                {
-                    "device": None,  # Force default device
-                    "channels": 1,
-                    "samplerate": 44100,  # macOS preferred rate
-                    "blocksize": 1024,
-                    "dtype": np.float32,
-                    # Removed never_drop_input and prime_output_buffers - cause -9995 errors
-                },
-                # Strategy 2: Lower sample rate with minimal latency
-                {
-                    "device": None,
-                    "channels": 1,
-                    "samplerate": 16000,
-                    "blocksize": 512,
-                    "dtype": np.float32,
-                    # Removed never_drop_input - causes -9995 errors
-                },
-                # Strategy 3: High-quality with larger buffers
-                {
-                    "device": None,
-                    "channels": 1,
-                    "samplerate": 48000,
-                    "blocksize": 2048,
-                    "dtype": np.float32,
-                    # Removed never_drop_input - not supported by current PortAudio
-                },
-            ]
-
-            for i, strategy in enumerate(reinit_strategies, 1):
-                try:
-                    logger.debug(f"🔄 Trying reinit strategy {i}: {strategy}")
-
-                    # Create stream with strategy parameters
-                    self.stream = sd.InputStream(
-                        device=strategy["device"],
-                        channels=strategy["channels"],
-                        samplerate=strategy["samplerate"],
-                        blocksize=strategy["blocksize"],
-                        callback=self._audio_callback,
-                        dtype=strategy["dtype"],
-                        # Removed never_drop_input and prime_output_buffers parameters
-                        # These cause PortAudio -9995 "Invalid flag" errors
-                    )
-
-                    # Try to start the stream
-                    self.stream.start()
-
-                    # Update recorder settings to match successful strategy
-                    original_device = self.device
-                    original_sample_rate = self.sample_rate
-                    original_channels = self.channels
-                    original_chunk_size = self.chunk_size
-
-                    self.device = strategy["device"]
-                    self.sample_rate = strategy["samplerate"]
-                    self.channels = strategy["channels"]
-                    self.chunk_size = strategy["blocksize"]
-                    self.recording = True
-
-                    logger.info(
-                        f"🟢 PortAudio reinitialization successful with strategy {i}"
-                    )
-                    logger.info(
-                        f"🔧 Audio settings updated: {original_sample_rate}Hz→{self.sample_rate}Hz, "
-                        f"device {original_device}→{self.device}, "
-                        f"{original_channels}ch→{self.channels}ch, "
-                        f"blocksize {original_chunk_size}→{self.chunk_size}"
-                    )
-
-                    return True
-
-                except Exception as e:
-                    logger.debug(f"Reinit strategy {i} failed: {e}")
-                    if self.stream:
-                        try:
-                            self.stream.close()
-                        except Exception:
-                            pass
-                        self.stream = None
-                    continue
-
-            logger.warning("🔄 All PortAudio reinitialization strategies failed")
+                except Exception:
+                    pass
+                self.stream = None
             return False
 
         except Exception as e:
@@ -483,91 +502,110 @@ class AudioRecorder(QObject):
             return True
 
         except Exception as e:
-            # Enhanced error recovery with macOS-specific handling
-            error_msg = str(e).lower()
-            logger.error(f"❌ Failed to start recording with device {self.device}: {e}")
+            return self._handle_start_error(e)
 
-            # Detailed error analysis and logging
-            if "paerrorcode -9986" in error_msg:
-                logger.error(
-                    "🚫 PortAudio Error -9986: Internal PortAudio error (macOS compatibility issue)"
-                )
-                self._log_detailed_error_info(e, "PortAudio -9986")
+    def _handle_start_error(self, e: Exception) -> bool:
+        """Handle errors during recording start with enhanced recovery.
 
-                # Attempt specific -9986 error recovery
-                logger.info("🔧 Attempting PortAudio -9986 specific recovery...")
-                if self._handle_portaudio_9986_error(self.device):
-                    logger.info("🟢 PortAudio -9986 recovery successful")
-                    return True
+        Args:
+            e: The exception that occurred during start.
 
-            elif "paerrorcode -9988" in error_msg:
-                logger.error(
-                    "🚫 PortAudio Error -9988: Invalid device - device may have been disconnected"
-                )
-                self._log_detailed_error_info(e, "PortAudio -9988")
-            elif "audio unit: invalid property value" in error_msg:
-                logger.error("🚫 macOS Audio Unit error: Invalid property value")
-                self._log_detailed_error_info(e, "Audio Unit Error")
+        Returns:
+            True if recovery was successful and recording started, False otherwise.
+        """
+        # Enhanced error recovery with macOS-specific handling
+        error_msg = str(e).lower()
+        logger.error(f"❌ Failed to start recording with device {self.device}: {e}")
 
-                # Attempt Audio Unit error recovery
-                logger.info("🔧 Attempting Audio Unit error recovery...")
-                if self._handle_audio_unit_error(self.device):
-                    logger.info("🟢 Audio Unit error recovery successful")
-                    return True
-            else:
-                logger.error("🚫 Unknown audio error")
-                self._log_detailed_error_info(e, "Unknown")
+        # Detailed error analysis and logging
+        if "paerrorcode -9986" in error_msg:
+            logger.error(
+                "🚫 PortAudio Error -9986: Internal PortAudio error (macOS compatibility issue)"
+            )
+            self._log_detailed_error_info(e, "PortAudio -9986")
 
-            # Enhanced recovery strategy with multiple phases
-            logger.warning("🔧 Starting enhanced error recovery...")
-
-            # Phase 1: Permission recheck (might have changed)
-            logger.info("🔒 Phase 1: Rechecking permissions...")
-            if not self._validate_microphone_permissions():
-                logger.error(
-                    "🔒 Permission recheck failed - cannot proceed with recovery"
-                )
-                self._suggest_audio_fixes()
-                return self._cleanup_failed_start()
-
-            # Phase 2: PortAudio reinitialization strategy
-            logger.info("🔄 Phase 2: Attempting PortAudio reinitialization...")
-            if self._try_portaudio_reinit():
-                logger.info("🟢 Recovery successful via PortAudio reinitialization")
+            # Attempt specific -9986 error recovery
+            logger.info("🔧 Attempting PortAudio -9986 specific recovery...")
+            if self._handle_portaudio_9986_error(self.device):
+                logger.info("🟢 PortAudio -9986 recovery successful")
                 return True
 
-            # Phase 3: Device-specific recovery
-            logger.info("🔄 Phase 3: Attempting device-specific recovery...")
-            if self.device is not None:
-                # Check if this is a RODECaster Pro device
-                if self._is_rodecast_device(self.device):
-                    logger.info(
-                        "🎤 Detected RODECaster Pro - attempting specific recovery..."
-                    )
-                    if self._handle_rodecast_pro_errors(self.device):
-                        logger.info("🟢 RODECaster Pro recovery successful")
-                        return True
+        elif "paerrorcode -9988" in error_msg:
+            logger.error(
+                "🚫 PortAudio Error -9988: Invalid device - device may have been disconnected"
+            )
+            self._log_detailed_error_info(e, "PortAudio -9988")
+        elif "audio unit: invalid property value" in error_msg:
+            logger.error("🚫 macOS Audio Unit error: Invalid property value")
+            self._log_detailed_error_info(e, "Audio Unit Error")
 
-                logger.warning("Trying fallback strategies for specific device...")
+            # Attempt Audio Unit error recovery
+            logger.info("🔧 Attempting Audio Unit error recovery...")
+            if self._handle_audio_unit_error(self.device):
+                logger.info("🟢 Audio Unit error recovery successful")
+                return True
+        else:
+            logger.error("🚫 Unknown audio error")
+            self._log_detailed_error_info(e, "Unknown")
 
-                # Strategy 1: Try default device
-                if self._try_fallback_device(None):
-                    logger.info("🟢 Recovery successful via default device fallback")
-                    return True
+        # Enhanced recovery strategy with multiple phases
+        return self._attempt_enhanced_recovery()
 
-                # Strategy 2: Try alternative sample rates
-                if self._try_fallback_sample_rates():
-                    logger.info("🟢 Recovery successful via sample rate fallback")
-                    return True
+    def _attempt_enhanced_recovery(self) -> bool:
+        """Attempt enhanced multi-phase recovery strategy.
 
-                # Strategy 3: Try alternative configurations
-                if self._try_alternative_configs():
-                    logger.info("🟢 Recovery successful via alternative configuration")
-                    return True
+        Returns:
+            True if recovery successful, False otherwise.
+        """
+        logger.warning("🔧 Starting enhanced error recovery...")
 
-            logger.error("❌ Failed to start recording after recovery attempts")
+        # Phase 1: Permission recheck (might have changed)
+        logger.info("🔒 Phase 1: Rechecking permissions...")
+        if not self._validate_microphone_permissions():
+            logger.error(
+                "🔒 Permission recheck failed - cannot proceed with recovery"
+            )
             self._suggest_audio_fixes()
             return self._cleanup_failed_start()
+
+        # Phase 2: PortAudio reinitialization strategy
+        logger.info("🔄 Phase 2: Attempting PortAudio reinitialization...")
+        if self._try_portaudio_reinit():
+            logger.info("🟢 Recovery successful via PortAudio reinitialization")
+            return True
+
+        # Phase 3: Device-specific recovery
+        logger.info("🔄 Phase 3: Attempting device-specific recovery...")
+        if self.device is not None:
+            # Check if this is a RODECaster Pro device
+            if self._is_rodecast_device(self.device):
+                logger.info(
+                    "🎤 Detected RODECaster Pro - attempting specific recovery..."
+                )
+                if self._handle_rodecast_pro_errors(self.device):
+                    logger.info("🟢 RODECaster Pro recovery successful")
+                    return True
+
+            logger.warning("Trying fallback strategies for specific device...")
+
+            # Strategy 1: Try default device
+            if self._try_fallback_device(None):
+                logger.info("🟢 Recovery successful via default device fallback")
+                return True
+
+            # Strategy 2: Try alternative sample rates
+            if self._try_fallback_sample_rates():
+                logger.info("🟢 Recovery successful via sample rate fallback")
+                return True
+
+            # Strategy 3: Try alternative configurations
+            if self._try_alternative_configs():
+                logger.info("🟢 Recovery successful via alternative configuration")
+                return True
+
+        logger.error("❌ Failed to start recording after recovery attempts")
+        self._suggest_audio_fixes()
+        return self._cleanup_failed_start()
 
     def _log_detailed_error_info(self, error: Exception, error_type: str) -> None:
         """Log detailed error information for debugging.
@@ -1053,18 +1091,18 @@ class AudioRecorder(QObject):
             },
         ]
 
-        for i, config in enumerate(safe_configs, 1):
+        for i, cfg in enumerate(safe_configs, 1):
             try:
-                logger.debug(f"   Testing AUHAL recovery config {i}: {config}")
+                logger.debug(f"   Testing AUHAL recovery config {i}: {cfg}")
 
                 # Create stream with only basic, AUHAL-safe parameters
                 self.stream = sd.InputStream(
-                    device=config["device"],
-                    channels=config["channels"],
-                    samplerate=config["samplerate"],
-                    blocksize=config["blocksize"],
+                    device=cfg["device"],
+                    channels=cfg["channels"],
+                    samplerate=cfg["samplerate"],
+                    blocksize=cfg["blocksize"],
                     callback=self._audio_callback,
-                    dtype=config["dtype"],
+                    dtype=cfg["dtype"],
                     # Explicitly avoid: never_drop_input, prime_output_buffers_using_stream_callback
                 )
 
@@ -1138,11 +1176,11 @@ class AudioRecorder(QObject):
             },
         ]
 
-        for i, config in enumerate(conservative_configs, 1):
+        for i, cfg in enumerate(conservative_configs, 1):
             try:
-                logger.debug(f"   Testing Audio Unit recovery config {i}: {config}")
+                logger.debug(f"   Testing Audio Unit recovery config {i}: {cfg}")
 
-                self.stream = sd.InputStream(callback=self._audio_callback, **config)
+                self.stream = sd.InputStream(callback=self._audio_callback, **cfg)
                 self.stream.start()
 
                 # Update settings
@@ -1234,12 +1272,12 @@ class AudioRecorder(QObject):
                 },
             ]
 
-            for i, config in enumerate(rodecast_configs, 1):
+            for i, cfg in enumerate(rodecast_configs, 1):
                 try:
-                    logger.debug(f"   Testing RODECaster config {i}: {config}")
+                    logger.debug(f"   Testing RODECaster config {i}: {cfg}")
 
                     self.stream = sd.InputStream(
-                        callback=self._audio_callback, **config
+                        callback=self._audio_callback, **cfg
                     )
                     self.stream.start()
 
@@ -1419,9 +1457,13 @@ class AudioRecorder(QObject):
 
     def _log_macos_audio_diagnostics(self) -> None:
         """Log macOS-specific audio diagnostics."""
-        import subprocess
-
         logger.error("macOS Audio System:")
+        self._log_coreaudio_processes()
+        self._log_system_audio_devices()
+
+    def _log_coreaudio_processes(self) -> None:
+        """Log running Core Audio processes."""
+        import subprocess
 
         try:
             # Check Core Audio daemon
@@ -1437,17 +1479,21 @@ class AudioRecorder(QObject):
                 ]
                 if coreaudio_processes:
                     logger.error("   Core Audio processes:")
-                    for process in coreaudio_processes[:3]:  # Limit output
-                        logger.error(f"     {process.strip()}")
+                    for proc in coreaudio_processes:
+                        logger.error(f"     {proc[:100]}...")  # Truncate long lines
                 else:
                     logger.error("   ⚠️ No Core Audio processes found")
         except Exception:
             logger.error("   Could not check Core Audio processes")
 
+    def _log_system_audio_devices(self) -> None:
+        """Log system audio devices via system_profiler."""
+        import subprocess
+
         try:
             # Check system audio info briefly
             result = subprocess.run(
-                ["system_profiler", "SPAudioDataType", "-timeout", "5"],
+                ["system_profiler", "SPAudioDataType"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -1699,9 +1745,9 @@ class AudioRecorder(QObject):
             {"param_name": "exclusive_mode", "param_value": False},
         ]
 
-        for config in test_configs:
-            param_name = config["param_name"]
-            param_value = config["param_value"]
+        for cfg in test_configs:
+            param_name = cfg["param_name"]
+            param_value = cfg["param_value"]
 
             try:
                 # Create minimal test stream with the specific parameter

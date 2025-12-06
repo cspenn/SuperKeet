@@ -12,15 +12,14 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from superkeet.asr.transcriber import ASRTranscriber
 from superkeet.audio.recorder import AudioRecorder
+from superkeet.config.config_loader import config
 from superkeet.hotkey.listener import HotkeyListener
 from superkeet.text.injector import TextInjector
 from superkeet.ui.first_run_dialog import FirstRunDialog
 from superkeet.ui.main_window import MainWindow
 from superkeet.ui.settings_dialog import SettingsDialog
-from superkeet.ui.settings_dialog import SettingsDialog
 from superkeet.utils.logger import setup_logger
 from superkeet.utils.transcript_logger import TranscriptLogger
-from superkeet.config.config_loader import config
 
 logger = setup_logger(__name__)
 
@@ -102,7 +101,7 @@ class SuperKeetApp:
 
         # Worker thread
         self.asr_worker: Optional[ASRWorker] = None
-        
+
         # Dock menus (Optional because they might fail to init or be deleted)
         self.dock_menu: Optional[QMenu] = None
         self.dock_recent_menu: Optional[QMenu] = None
@@ -132,19 +131,27 @@ class SuperKeetApp:
 
     def _create_icon(self) -> None:
         """Create icon for the system tray."""
-        # Try to load the parakeet SVG icon
-        icon_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "..", "assets", "parakeet.svg"
-        )
-        if os.path.exists(icon_path):
-            self.icon = QIcon(icon_path)
-            logger.info(f"Loaded icon from {icon_path}")
-        else:
-            # Create a simple colored square as fallback
-            pixmap = QPixmap(32, 32)
-            pixmap.fill("#007AFF")  # Blue color
-            self.icon = QIcon(pixmap)
-            logger.info("Using default colored icon")
+        # Determine paths
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        assets_dir = os.path.join(base_path, "assets")
+        
+        # Priority list for icon loading
+        icon_names = ["SuperKeet.icns", "parakeet.png", "parakeet.svg"]
+        
+        for name in icon_names:
+            icon_path = os.path.join(assets_dir, name)
+            if os.path.exists(icon_path):
+                self.icon = QIcon(icon_path)
+                logger.info(f"Loaded icon from {icon_path}")
+                
+                # If on macOS and using .icns, we might need to set it specifically
+                return
+
+        # Fallback
+        pixmap = QPixmap(32, 32)
+        pixmap.fill("#007AFF")  # Blue color
+        self.icon = QIcon(pixmap)
+        logger.info("Using default colored icon")
 
     def _setup_dock(self) -> None:
         """Set up dock icon and functionality."""

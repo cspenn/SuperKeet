@@ -456,29 +456,35 @@ class BatchProgressDialog(QDialog):
         """
         for file_path, file_item in self.file_items.items():
             if Path(file_path).name == filename:
-                # Find status label and update
-                for i in range(file_item.layout().count()):
-                    widget = file_item.layout().itemAt(i).widget()
-                    if (
-                        widget
-                        and isinstance(widget, QLabel)
-                        and "Waiting" not in widget.text()
-                        and "Processing" not in widget.text()
-                    ):
-                        continue
-                    if widget and isinstance(widget, QLabel):
-                        if success:
-                            widget.setText("✅ Completed")
-                            file_item.setStyleSheet(
-                                "QFrame { border: 2px solid #34C759; }"
-                            )
-                        else:
-                            widget.setText("❌ Failed")
-                            file_item.setStyleSheet(
-                                "QFrame { border: 2px solid #FF3B30; }"
-                            )
-                        break
+                self._update_single_file_item(file_item, success)
                 break
+
+    def _update_single_file_item(self, file_item: QFrame, success: bool) -> None:
+        """Update a single file item widget.
+
+        Args:
+            file_item: The widget representing the file
+            success: Whether processing was successful
+        """
+        # Find status label and update
+        for i in range(file_item.layout().count()):
+            widget = file_item.layout().itemAt(i).widget()
+            if self._is_status_label(widget):
+                if success:
+                    widget.setText("✅ Completed")
+                    file_item.setStyleSheet("QFrame { border: 2px solid #34C759; }")
+                else:
+                    widget.setText("❌ Failed")
+                    file_item.setStyleSheet("QFrame { border: 2px solid #FF3B30; }")
+                break
+
+    def _is_status_label(self, widget: QWidget) -> bool:
+        """Check if widget is the status label."""
+        if not (widget and isinstance(widget, QLabel)):
+            return False
+
+        text = widget.text()
+        return "Waiting" in text or "Processing" in text or "Completed" in text or "Failed" in text
 
     def apply_styles(self) -> None:
         """Apply styling to the dialog."""

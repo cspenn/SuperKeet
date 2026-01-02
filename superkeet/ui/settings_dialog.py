@@ -69,9 +69,7 @@ class HotkeyEdit(QWidget):
         """Format hotkey combination for display."""
         key_map = {"cmd": "⌘", "ctrl": "⌃", "alt": "⌥", "shift": "⇧", "space": "Space"}
 
-        formatted = []
-        for key in self.hotkey_combo:
-            formatted.append(key_map.get(key, key.upper()))
+        formatted = [key_map.get(key, key.upper()) for key in self.hotkey_combo]
 
         return " + ".join(formatted)
 
@@ -666,7 +664,7 @@ class SettingsDialog(QDialog):
             logger.error(f"🛑 Failed to save settings: {e}")
             self._show_error_message(
                 "Configuration Error",
-                f"Failed to save settings to configuration file:\n{str(e)}\n\n"
+                f"Failed to save settings to configuration file:\n{e}\n\n"
                 "Your settings have not been saved. Please check file permissions and try again.",  # noqa: E501
             )
             return
@@ -679,10 +677,10 @@ class SettingsDialog(QDialog):
             message: Error message to display
         """
         msg_box = QMessageBox(self)
-        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setIcon(QMessageBox.Icon.Warning)
         msg_box.setWindowTitle(title)
         msg_box.setText(message)
-        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
 
     def accept(self):

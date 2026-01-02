@@ -1,3 +1,4 @@
+# start src/services/device_service.py
 """Centralized device validation and management service."""
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,7 +14,7 @@ logger = setup_logger(__name__)
 class DeviceService:
     """Centralized service for audio device validation and management."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize device service."""
         self._cached_devices = None
         self._cache_timestamp = 0
@@ -61,8 +62,8 @@ class DeviceService:
         try:
             if device_index is None:
                 return sd.query_devices(kind="input")
-            else:
-                return sd.query_devices(device_index)
+
+            return sd.query_devices(device_index)
         except Exception as e:
             raise AudioDeviceError(f"Failed to get device info: {e}")
 
@@ -176,3 +177,6 @@ class DeviceService:
             logger.error(f"Sample rate optimization failed: {e}")
             logger.info("🟡 Falling back to 16000Hz")
             return 16000
+
+
+# end src/services/device_service.py

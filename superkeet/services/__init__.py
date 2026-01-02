@@ -1,6 +1,8 @@
+# start src/services/__init__.py
 """Service layer for SuperKeet application."""
 
-from .config_service import ConfigService, config_service
-from .device_service import DeviceService
+from superkeet.services.device_service import DeviceService
 
-__all__ = ["ConfigService", "config_service", "DeviceService"]
+__all__ = ["DeviceService"]
+
+# end src/services/__init__.py

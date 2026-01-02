@@ -1,5 +1,7 @@
+# start src/utils/file_manager.py
 """File management utilities for SuperKeet application."""
 
+import operator
 import time
 from datetime import datetime
 from pathlib import Path
@@ -208,7 +210,7 @@ class FileManager:
                     )
 
             # Sort by modification time (newest first)
-            file_info.sort(key=lambda x: x["modified"], reverse=True)
+            file_info.sort(key=operator.itemgetter("modified"), reverse=True)
             return file_info
 
         except Exception as e:
@@ -242,3 +244,6 @@ class FileManager:
             return True
 
         return False
+
+
+# end src/utils/file_manager.py

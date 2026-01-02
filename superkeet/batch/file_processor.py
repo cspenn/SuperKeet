@@ -1,3 +1,4 @@
+# start src/batch/file_processor.py
 """File processor for drag-and-drop transcription handling."""
 
 from pathlib import Path
@@ -91,7 +92,7 @@ class FileProcessor:
             return True, ""
 
         except Exception as e:
-            error_msg = f"Validation error: {str(e)}"
+            error_msg = f"Validation error: {e}"
             logger.error(f"🛑 {error_msg}")
             return False, error_msg
 
@@ -185,8 +186,8 @@ class FileProcessor:
                 "extension": file_path.suffix.lower(),
                 "modified": stat.st_mtime,
                 "is_audio": file_path.suffix.lower().lstrip(".")
-                in ["mp3", "wav", "flac", "m4a"],
-                "is_video": file_path.suffix.lower().lstrip(".") in ["mp4", "mov"],
+                in ("mp3", "wav", "flac", "m4a"),
+                "is_video": file_path.suffix.lower().lstrip(".") in ("mp4", "mov"),
             }
 
             # Add estimated processing time (rough estimate: 1GB = 10 minutes processing)  # noqa: E501
@@ -197,3 +198,6 @@ class FileProcessor:
         except Exception as e:
             logger.error(f"🛑 Failed to get file info: {e}")
             return {"error": str(e)}
+
+
+# end src/batch/file_processor.py

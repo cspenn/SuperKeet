@@ -4,8 +4,6 @@ Main application window for SuperKeet.
 Provides detailed feedback and control with a sleek, responsive UI.
 """
 
-import logging
-
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
@@ -21,12 +19,12 @@ from PySide6.QtWidgets import (
 )
 
 from superkeet.config.config_loader import config
+from superkeet.ui.audio_animation_widget import AudioAnimationWidget
+from superkeet.ui.batch_progress_dialog import BatchProgressDialog
+from superkeet.ui.drop_zone_widget import DropZoneWidget
+from superkeet.utils.logger import setup_logger
 
-from .audio_animation_widget import AudioAnimationWidget
-from .batch_progress_dialog import BatchProgressDialog
-from .drop_zone_widget import DropZoneWidget
-
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -75,9 +73,7 @@ class MainWindow(QMainWindow):
         else:
             keys = hotkey_combo
 
-        formatted = []
-        for key in keys:
-            formatted.append(key_map.get(key, key.upper()))
+        formatted = [key_map.get(key, key.upper()) for key in keys]
 
         return "+".join(formatted)
 

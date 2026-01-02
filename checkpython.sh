@@ -23,7 +23,7 @@ bandit -r .
 
 echo "Beginning pytest."
 
-poetry run python -m pytest
+uv run python -m pytest
 
 echo "Beginning final cleaning."
 

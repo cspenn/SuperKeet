@@ -1,6 +1,7 @@
 # start src/config/config_loader.py
 """Configuration loader for SuperKeet."""
 
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict
 
@@ -32,13 +33,13 @@ class ConfigLoader:
                 yaml_loader.preserve_quotes = True
                 yaml_loader.width = 4096
 
-                with open(self.config_path, "r") as f:
+                with self.config_path.open("r") as f:
                     self.config = yaml_loader.load(f) or {}
             except ImportError:
                 # Fallback to standard yaml
                 import yaml
 
-                with open(self.config_path, "r") as f:
+                with self.config_path.open("r") as f:
                     self.config = yaml.safe_load(f) or {}
         else:
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
@@ -49,12 +50,12 @@ class ConfigLoader:
                 import ruamel.yaml
 
                 yaml_loader = ruamel.yaml.YAML()
-                with open(self.credentials_path, "r") as f:
+                with self.credentials_path.open("r") as f:
                     credentials = yaml_loader.load(f) or {}
             except ImportError:
                 import yaml
 
-                with open(self.credentials_path, "r") as f:
+                with self.credentials_path.open("r") as f:
                     credentials = yaml.safe_load(f) or {}
             # Merge credentials into config
             self.config.update(credentials)
@@ -174,21 +175,17 @@ class ConfigLoader:
                 import shutil
 
                 shutil.copy2(self.config_path, self.backup_path)
-                try:
+                with suppress(ImportError):
                     from superkeet.utils.logger import setup_logger
 
                     logger = setup_logger(__name__)
                     logger.debug(f"Configuration backup created: {self.backup_path}")
-                except ImportError:
-                    pass
             except Exception as e:
-                try:
+                with suppress(ImportError):
                     from superkeet.utils.logger import setup_logger
 
                     logger = setup_logger(__name__)
                     logger.warning(f"Failed to create configuration backup: {e}")
-                except ImportError:
-                    pass
 
     def restore_from_backup(self) -> bool:
         """Restore configuration from backup file.
@@ -197,13 +194,11 @@ class ConfigLoader:
             True if restore was successful, False otherwise.
         """
         if not self.backup_path.exists():
-            try:
+            with suppress(ImportError):
                 from superkeet.utils.logger import setup_logger
 
                 logger = setup_logger(__name__)
                 logger.error("No backup file found for restore")
-            except ImportError:
-                pass
             return False
 
         try:
@@ -211,22 +206,18 @@ class ConfigLoader:
 
             shutil.copy2(self.backup_path, self.config_path)
             self.load()  # Reload the restored configuration
-            try:
+            with suppress(ImportError):
                 from superkeet.utils.logger import setup_logger
 
                 logger = setup_logger(__name__)
                 logger.info("Configuration restored from backup successfully")
-            except ImportError:
-                pass
             return True
         except Exception as e:
-            try:
+            with suppress(ImportError):
                 from superkeet.utils.logger import setup_logger
 
                 logger = setup_logger(__name__)
                 logger.error(f"Failed to restore configuration from backup: {e}")
-            except ImportError:
-                pass
             return False
 
 

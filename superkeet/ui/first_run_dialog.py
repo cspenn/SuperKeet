@@ -1,3 +1,4 @@
+# start src/ui/first_run_dialog.py
 """First-run experience dialog for SuperKeet setup."""
 
 from PySide6.QtCore import Qt, Signal, Slot
@@ -105,7 +106,7 @@ class FirstRunDialog(QDialog):
 
         # Title
         title = QLabel("SuperKeet Setup")
-        title.setFont(QFont("", 24, QFont.Bold))
+        title.setFont(QFont("", 24, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA; margin-left: 15px;")
         layout.addWidget(title)
 
@@ -148,9 +149,9 @@ class FirstRunDialog(QDialog):
 
         # Welcome title
         title = QLabel("Welcome to SuperKeet!")
-        title.setFont(QFont("", 20, QFont.Bold))
+        title.setFont(QFont("", 20, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA; margin-bottom: 20px;")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         # Description
@@ -180,7 +181,7 @@ class FirstRunDialog(QDialog):
 
         # Title
         title = QLabel("Required Permissions")
-        title.setFont(QFont("", 18, QFont.Bold))
+        title.setFont(QFont("", 18, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA; margin-bottom: 20px;")
         layout.addWidget(title)
 
@@ -224,7 +225,7 @@ class FirstRunDialog(QDialog):
     ) -> QFrame:
         """Create a permission item widget."""
         frame = QFrame()
-        frame.setFrameStyle(QFrame.Box)
+        frame.setFrameStyle(QFrame.Shape.Box)
         frame.setStyleSheet(
             "QFrame { border: 1px solid #3A3A3A; border-radius: 8px; padding: 15px; }"
         )
@@ -241,7 +242,7 @@ class FirstRunDialog(QDialog):
         text_layout = QVBoxLayout()
 
         title_label = QLabel(title)
-        title_label.setFont(QFont("", 14, QFont.Bold))
+        title_label.setFont(QFont("", 14, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #EAEAEA;")
         text_layout.addWidget(title_label)
 
@@ -271,7 +272,7 @@ class FirstRunDialog(QDialog):
 
         # Title
         title = QLabel("Select Audio Device")
-        title.setFont(QFont("", 18, QFont.Bold))
+        title.setFont(QFont("", 18, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA; margin-bottom: 20px;")
         layout.addWidget(title)
 
@@ -329,7 +330,7 @@ class FirstRunDialog(QDialog):
 
         # Title
         title = QLabel("SuperKeet Features")
-        title.setFont(QFont("", 18, QFont.Bold))
+        title.setFont(QFont("", 18, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA; margin-bottom: 20px;")
         layout.addWidget(title)
 
@@ -385,7 +386,7 @@ class FirstRunDialog(QDialog):
         text_layout = QVBoxLayout()
 
         name_label = QLabel(name)
-        name_label.setFont(QFont("", 14, QFont.Bold))
+        name_label.setFont(QFont("", 14, QFont.Weight.Bold))
         name_label.setStyleSheet("color: #EAEAEA;")
         text_layout.addWidget(name_label)
 
@@ -407,16 +408,16 @@ class FirstRunDialog(QDialog):
         # Success icon
         success_label = QLabel("🎉")
         success_label.setStyleSheet("font-size: 48px;")
-        success_label.setAlignment(Qt.AlignCenter)
+        success_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(success_label)
 
         layout.addSpacing(20)
 
         # Title
         title = QLabel("Setup Complete!")
-        title.setFont(QFont("", 20, QFont.Bold))
+        title.setFont(QFont("", 20, QFont.Weight.Bold))
         title.setStyleSheet("color: #EAEAEA;")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
         layout.addSpacing(20)
@@ -434,7 +435,7 @@ class FirstRunDialog(QDialog):
         )
         summary.setWordWrap(True)
         summary.setStyleSheet("color: #EAEAEA; font-size: 14px; line-height: 1.6;")
-        summary.setAlignment(Qt.AlignCenter)
+        summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(summary)
 
         layout.addStretch()
@@ -506,19 +507,35 @@ class FirstRunDialog(QDialog):
                 self.device_info_label.setText(f"Error getting device info: {e}")
 
     def test_selected_device(self):
-        """Test the selected audio device."""
+        """Test the selected audio device by attempting a brief recording."""
         try:
             if self.selected_device is None:
                 device_name = "Default Device"
             else:
                 device_name = self.device_combo.currentText()
 
-            # TODO: Implement audio device test
-            # For now, just show a message
-            self.device_info_label.setText(f"✅ {device_name} is working correctly!")
+            self.device_info_label.setText(f"🔄 Testing {device_name}...")
+
+            # Attempt a brief audio capture to verify device works
+            temp_recorder = AudioRecorder()
+            temp_recorder.device = self.selected_device
+
+            if temp_recorder.start():
+                import time
+
+                time.sleep(0.2)  # Brief capture
+                temp_recorder.stop()
+                self.device_info_label.setText(f"✅ {device_name} works!")
+                logger.info(f"🎙️ Device test passed: {device_name}")
+            else:
+                self.device_info_label.setText(
+                    f"⚠️ {device_name} may have permission issues"
+                )
+                logger.warning(f"🟡 Device test inconclusive: {device_name}")
 
         except Exception as e:
             self.device_info_label.setText(f"❌ Device test failed: {e}")
+            logger.error(f"🛑 Device test failed: {e}")
 
     def request_permission(self, perm_type: str):
         """Request system permission."""
@@ -597,7 +614,7 @@ class FirstRunDialog(QDialog):
                 "3. Click 'Done' and return to this setup\n\n"
                 "If SuperKeet is not in the list, you may need to add it manually by clicking the '+' button."  # noqa: E501
             )
-            msg.setIcon(QMessageBox.Information)
+            msg.setIcon(QMessageBox.Icon.Information)
             msg.exec()
 
             logger.info("⌨️ Accessibility permission dialog opened")
@@ -737,3 +754,6 @@ class FirstRunDialog(QDialog):
             }
         """
         )
+
+
+# end src/ui/first_run_dialog.py

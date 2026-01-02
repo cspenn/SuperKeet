@@ -1,3 +1,4 @@
+# start src/ui/drop_zone_widget.py
 """Drop zone widget for drag-and-drop file handling."""
 
 from pathlib import Path
@@ -231,3 +232,6 @@ class DropZoneWidget(QWidget):
             painter.drawRoundedRect(rect, 6, 6)
 
             painter.end()
+
+
+# end src/ui/drop_zone_widget.py

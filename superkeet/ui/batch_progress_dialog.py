@@ -1,7 +1,9 @@
+# start src/ui/batch_progress_dialog.py
 """Batch progress dialog for monitoring transcription progress."""
 
+from contextlib import suppress
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
@@ -48,8 +50,8 @@ class BatchProgressDialog(QDialog):
 
         # State tracking
         self.is_running = False
-        self.results: Dict[str, any] = {}
-        self.file_results: List[Dict[str, any]] = []
+        self.results: Dict[str, Any] = {}
+        self.file_results: List[Dict[str, Any]] = []
 
         self.setup_ui()
         self.setup_components()
@@ -200,13 +202,11 @@ class BatchProgressDialog(QDialog):
         layout.addWidget(name_label)
 
         # File size
-        try:
+        with suppress(Exception):
             size_mb = file_path.stat().st_size / (1024**2)
             size_label = QLabel(f"Size: {size_mb:.1f} MB")
             size_label.setStyleSheet("font-size: 11px; color: #8E8E93;")
             layout.addWidget(size_label)
-        except Exception:
-            pass
 
         # Status
         status_label = QLabel("⏳ Waiting")
@@ -321,7 +321,7 @@ class BatchProgressDialog(QDialog):
         )
 
     @Slot(dict)
-    def on_batch_completed(self, results: Dict[str, any]) -> None:
+    def on_batch_completed(self, results: Dict[str, Any]) -> None:
         """Handle batch completion.
 
         Args:
@@ -375,7 +375,7 @@ class BatchProgressDialog(QDialog):
         logger.error(f"🛑 Batch error: {error_message}")
 
     @Slot(dict)
-    def update_progress_display(self, progress_info: Dict[str, any]) -> None:
+    def update_progress_display(self, progress_info: Dict[str, Any]) -> None:
         """Update progress display with detailed information.
 
         Args:
@@ -484,7 +484,12 @@ class BatchProgressDialog(QDialog):
             return False
 
         text = widget.text()
-        return "Waiting" in text or "Processing" in text or "Completed" in text or "Failed" in text
+        return (
+            "Waiting" in text
+            or "Processing" in text
+            or "Completed" in text
+            or "Failed" in text
+        )
 
     def apply_styles(self) -> None:
         """Apply styling to the dialog."""
@@ -568,3 +573,6 @@ class BatchProgressDialog(QDialog):
             self.progress_manager.cleanup()
 
         super().closeEvent(event)
+
+
+# end src/ui/batch_progress_dialog.py

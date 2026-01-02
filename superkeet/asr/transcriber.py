@@ -245,9 +245,9 @@ class ASRTranscriber:
             raise
         finally:
             # Robust cleanup of temporary file
-            if temp_path and os.path.exists(temp_path):
+            if temp_path and Path(temp_path).exists():
                 try:
-                    os.unlink(temp_path)
+                    Path(temp_path).unlink()
                     logger.debug(f"Cleaned up temporary file: {temp_path}")
                 except OSError as e:
                     logger.warning(f"Failed to cleanup temporary file {temp_path}: {e}")
@@ -392,9 +392,8 @@ class ASRTranscriber:
             target_sample_rate = self.parakeet_native_rate
         elif actual_rate != self.parakeet_native_rate:
             # Resample to Parakeet native rate
-            logger.debug(
-                f"🟡 Resampling audio from {actual_rate}Hz to {self.parakeet_native_rate}Hz"
-            )
+            target_rate = self.parakeet_native_rate
+            logger.debug(f"🟡 Resampling audio from {actual_rate}Hz to {target_rate}Hz")
             audio_data = self._resample_audio(
                 audio_data, actual_rate, self.parakeet_native_rate
             )

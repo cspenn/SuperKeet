@@ -21,51 +21,28 @@ The easiest way to get started:
 ./setup.sh
 ```
 
-This will automatically detect if you have UV or Poetry installed and set up the dependencies.
+This will install UV if needed and set up all dependencies.
 
 ### Manual Setup
-
-#### Option 1: Poetry (Stable)
-
-1. Install Poetry if you haven't already:
-   ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
-   ```
-
-2. Install dependencies:
-   ```bash
-   poetry install
-   ```
-
-#### Option 2: UV (Fast)
 
 1. Install UV:
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-2. Run the UV installer:
+2. Install dependencies:
    ```bash
-   ./install-uv.sh
+   uv sync --all-groups
    ```
-
-### Additional Setup
 
 3. Create credentials file from template:
    ```bash
    cp credentials.yml.dist credentials.yml
    ```
 
-4. Make the check script executable:
+4. Download the ASR model (optional - will auto-download on first use):
    ```bash
-   chmod +x checkpython.sh
-   ```
-
-5. Download the ASR model (optional - will auto-download on first use):
-   ```bash
-   poetry run python download_model.py
-   # or with UV:
-   source .venv/bin/activate && python download_model.py
+   uv run python download_model.py
    ```
 
 ## Usage
@@ -77,19 +54,12 @@ Simply run:
 ./startkeet.command
 ```
 
-The launcher will automatically detect and activate your virtual environment.
+The launcher will automatically use UV to run the application.
 
 ### Manual Launch
 
-With Poetry:
 ```bash
-poetry run python -m superkeet.main
-```
-
-With UV:
-```bash
-source .venv/bin/activate
-python -m superkeet.main
+uv run python -m superkeet.main
 ```
 
 ## Default Hotkey
@@ -109,30 +79,19 @@ Edit `config.yml` to customize:
 
 ## Dependency Management
 
-SuperKeet uses isolated virtual environments to prevent dependency conflicts. We support both Poetry and UV for dependency management.
+SuperKeet uses UV for fast, reliable dependency management with isolated virtual environments.
 
 ### Troubleshooting
 
 If you encounter dependency errors (like `ImportError: Numba needs NumPy 2.2 or less`):
 
-1. **Quick fix**: Run the setup script
-   ```bash
-   ./setup.sh
-   ```
+```bash
+# Remove and recreate the environment
+rm -rf .venv
+uv sync --all-groups
+```
 
-2. **Poetry fix**: Reset the environment
-   ```bash
-   poetry env remove --all
-   poetry install
-   ```
-
-3. **UV fix**: Recreate the environment
-   ```bash
-   rm -rf .venv
-   ./install-uv.sh
-   ```
-
-For detailed information about dependency management, troubleshooting, and best practices, see:
+For detailed information about dependency management, see:
 
 📖 **[Dependency Management Guide](docs/DEPENDENCY_MANAGEMENT.md)**
 
@@ -141,6 +100,11 @@ For detailed information about dependency management, troubleshooting, and best 
 Run quality checks:
 ```bash
 ./checkpython.sh
+```
+
+Run tests:
+```bash
+uv run pytest
 ```
 
 ## System Requirements

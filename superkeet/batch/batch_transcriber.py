@@ -1,3 +1,4 @@
+# start src/batch/batch_transcriber.py
 """Batch transcriber for processing multiple files using existing ASR infrastructure."""
 
 import json
@@ -279,7 +280,7 @@ class BatchTranscriptionWorker(QThread):
 
                 except Exception as e:
                     logger.error(f"❌ Error transcribing chunk {i + 1}: {e}")
-                    transcripts.append(f"[Error in chunk {i + 1}: {str(e)}]")
+                    transcripts.append(f"[Error in chunk {i + 1}: {e}]")
 
             # Combine transcripts with proper spacing
             combined_transcript = " ".join(
@@ -374,7 +375,7 @@ class BatchTranscriptionWorker(QThread):
                 content = transcript
 
             # Write transcript file
-            with open(output_path, "w", encoding="utf-8") as f:
+            with output_path.open("w", encoding="utf-8") as f:
                 f.write(content)
 
             logger.info(f"💾 Transcript saved: {output_path.name}")
@@ -502,3 +503,6 @@ class BatchTranscriber(QObject):
         if self.worker:
             self.worker.deleteLater()
             self.worker = None
+
+
+# end src/batch/batch_transcriber.py

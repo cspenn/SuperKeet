@@ -1,3 +1,4 @@
+# start src/config/validators.py
 """Configuration validation schemas using Pydantic."""
 
 from typing import Any, Dict, List, Optional
@@ -14,7 +15,7 @@ class HotkeyConfig(BaseModel):
 
     @field_validator("combination")
     @classmethod
-    def validate_combination(cls, v):
+    def validate_combination(cls, v: Any) -> str:
         if not v or not isinstance(v, str):
             raise ValueError("Hotkey combination must be a non-empty string")
         return v
@@ -42,29 +43,29 @@ class AudioConfig(BaseModel):
 
     @field_validator("sample_rate")
     @classmethod
-    def validate_sample_rate(cls, v):
-        valid_rates = [8000, 16000, 22050, 44100, 48000]
+    def validate_sample_rate(cls, v: int) -> int:
+        valid_rates = (8000, 16000, 22050, 44100, 48000)
         if v not in valid_rates:
             raise ValueError(f"Sample rate must be one of: {valid_rates}")
         return v
 
     @field_validator("channels")
     @classmethod
-    def validate_channels(cls, v):
-        if v not in [1, 2]:
+    def validate_channels(cls, v: int) -> int:
+        if v not in (1, 2):
             raise ValueError("Channels must be 1 (mono) or 2 (stereo)")
         return v
 
     @field_validator("gain")
     @classmethod
-    def validate_gain(cls, v):
+    def validate_gain(cls, v: float) -> float:
         if v <= 0 or v > 10:
             raise ValueError("Gain must be between 0 and 10")
         return v
 
     @field_validator("max_recording_duration")
     @classmethod
-    def validate_max_duration(cls, v):
+    def validate_max_duration(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("Max recording duration must be positive")
         if v > 3600:  # 1 hour max
@@ -73,7 +74,7 @@ class AudioConfig(BaseModel):
 
     @field_validator("buffer_size_limit")
     @classmethod
-    def validate_buffer_limit(cls, v):
+    def validate_buffer_limit(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("Buffer size limit must be positive")
         if v > 1000:  # 1GB max
@@ -89,8 +90,8 @@ class LoggingConfig(BaseModel):
 
     @field_validator("level")
     @classmethod
-    def validate_level(cls, v):
-        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    def validate_level(cls, v: str) -> str:
+        valid_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
         if v.upper() not in valid_levels:
             raise ValueError(f"Log level must be one of: {valid_levels}")
         return v.upper()
@@ -122,21 +123,21 @@ class ASRConfig(BaseModel):
 
     @field_validator("parakeet_native_rate")
     @classmethod
-    def validate_native_rate(cls, v):
+    def validate_native_rate(cls, v: int) -> int:
         if v != 16000:
             raise ValueError("Parakeet native rate must be 16000")
         return v
 
     @field_validator("auto_unload_timeout")
     @classmethod
-    def validate_auto_unload(cls, v):
+    def validate_auto_unload(cls, v: int) -> int:
         if v < 0:
             raise ValueError("Auto-unload timeout cannot be negative")
         return v
 
     @field_validator("max_audio_duration")
     @classmethod
-    def validate_max_duration(cls, v):
+    def validate_max_duration(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("Max audio duration must be positive")
         if v > 1440:  # 24 minutes max for Parakeet v3
@@ -145,8 +146,8 @@ class ASRConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def handle_model_id_compatibility(cls, data):
-        """Handle backward compatibility for model_id/model_name/model_identifier -> asr_model."""
+    def handle_model_id_compatibility(cls, data: Any) -> Any:
+        """Handle backward compat for model_id/model_name/model_identifier."""
         if isinstance(data, dict):
             # Handle backward compatibility with multiple old field names
             if "model_id" in data and "asr_model" not in data:
@@ -170,8 +171,8 @@ class TextConfig(BaseModel):
 
     @field_validator("method")
     @classmethod
-    def validate_method(cls, v):
-        valid_methods = ["clipboard", "accessibility"]
+    def validate_method(cls, v: str) -> str:
+        valid_methods = ("clipboard", "accessibility")
         if v not in valid_methods:
             raise ValueError(f"Injection method must be one of: {valid_methods}")
         return v
@@ -205,12 +206,11 @@ class SuperKeetConfig(BaseModel):
         default_factory=BatchProcessingConfig
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        extra = "allow"  # Allow extra fields for extensibility
-        validate_assignment = True  # Validate on assignment
-        use_enum_values = True  # Use enum values in serialization
+    model_config = {
+        "extra": "allow",
+        "validate_assignment": True,
+        "use_enum_values": True,
+    }
 
 
 def validate_config(config_dict: Dict[str, Any]) -> SuperKeetConfig:
@@ -229,3 +229,6 @@ def validate_config(config_dict: Dict[str, Any]) -> SuperKeetConfig:
         return SuperKeetConfig(**config_dict)
     except Exception as e:
         raise ValueError(f"Configuration validation failed: {e}")
+
+
+# end src/config/validators.py

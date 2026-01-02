@@ -3,8 +3,7 @@
 
 from superkeet.ui.main_window import MainWindow
 from superkeet.ui.tray_app import SuperKeetApp
-from superkeet.ui.waveform_widget import WaveformWidget
 
-__all__ = ["MainWindow", "WaveformWidget", "SuperKeetApp"]
+__all__ = ["MainWindow", "SuperKeetApp"]
 
 # end src/ui/__init__.py

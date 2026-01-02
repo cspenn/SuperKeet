@@ -1,8 +1,10 @@
+# start src/batch/progress_manager.py
 """Progress manager for batch transcription operations."""
 
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
@@ -60,11 +62,9 @@ class ProgressManager(QObject):
         # Calculate total bytes
         self.total_bytes_processed = 0
         for file_path in file_paths:
-            try:
+            with suppress(Exception):
                 if file_path.exists():
                     self.total_bytes_processed += file_path.stat().st_size
-            except Exception:
-                pass  # Skip files we can't read
 
         logger.info(
             f"📊 Progress tracking started: {self.total_files} files, "
@@ -115,7 +115,7 @@ class ProgressManager(QObject):
 
         self._emit_progress_update()
 
-    def finish_batch(self) -> Dict[str, any]:
+    def finish_batch(self) -> Dict[str, Any]:
         """Finish batch processing and return summary.
 
         Returns:
@@ -149,7 +149,7 @@ class ProgressManager(QObject):
         self.status_changed.emit("Batch processing completed")
         return summary
 
-    def get_progress_info(self) -> Dict[str, any]:
+    def get_progress_info(self) -> Dict[str, Any]:
         """Get current progress information.
 
         Returns:
@@ -245,7 +245,7 @@ class ProgressManager(QObject):
             if eta_formatted:
                 self.eta_updated.emit(eta_formatted)
 
-    def get_file_statistics(self) -> Dict[str, any]:
+    def get_file_statistics(self) -> Dict[str, Any]:
         """Get detailed file processing statistics.
 
         Returns:
@@ -271,3 +271,6 @@ class ProgressManager(QObject):
             self.update_timer.stop()
 
         logger.debug("🧹 Progress manager cleaned up")
+
+
+# end src/batch/progress_manager.py

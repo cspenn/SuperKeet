@@ -1,3 +1,4 @@
+# start src/batch/audio_converter.py
 """Audio converter for batch processing using FFmpeg."""
 
 import subprocess
@@ -360,3 +361,6 @@ class AudioConverter:
 
         if removed_count > 0:
             logger.info(f"🧹 Cleaned up {removed_count} chunk files")
+
+
+# end src/batch/audio_converter.py

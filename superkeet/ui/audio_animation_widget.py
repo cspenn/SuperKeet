@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class AudioAnimationWidget(QWidget):
     """Smooth animated visualization for audio recording."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setMinimumHeight(150)
         self.setMaximumHeight(200)
@@ -44,7 +44,7 @@ class AudioAnimationWidget(QWidget):
         # Start animation
         self.animation_timer.start()
 
-    def _update_animation(self):
+    def _update_animation(self) -> None:
         """Update animation state."""
         # Update phase
         self.animation_phase += 0.02
@@ -66,17 +66,17 @@ class AudioAnimationWidget(QWidget):
         self.update()
 
     @Slot()
-    def start_recording(self):
+    def start_recording(self) -> None:
         """Start recording animation."""
         self.is_recording = True
 
     @Slot()
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         """Stop recording animation."""
         self.is_recording = False
 
     @Slot(np.ndarray)
-    def update_audio_level(self, audio_chunk: np.ndarray):
+    def update_audio_level(self, audio_chunk: np.ndarray) -> None:
         """Update visualization based on audio level."""
         if not self.is_recording:
             return
@@ -89,13 +89,13 @@ class AudioAnimationWidget(QWidget):
 
         self.target_audio_level = normalized
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the visualization."""
         self.is_recording = False
         self.target_audio_level = 0.0
         self.current_audio_level = 0.0
 
-    def paintEvent(self, event):  # noqa: N802
+    def paintEvent(self, event) -> None:  # noqa: N802
         """Paint the animation."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)

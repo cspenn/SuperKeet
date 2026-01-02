@@ -3,6 +3,7 @@
 
 import os
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -134,16 +135,16 @@ class SuperKeetApp:
         # Determine paths
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         assets_dir = os.path.join(base_path, "assets")
-        
+
         # Priority list for icon loading
         icon_names = ["SuperKeet.icns", "parakeet.png", "parakeet.svg"]
-        
+
         for name in icon_names:
             icon_path = os.path.join(assets_dir, name)
-            if os.path.exists(icon_path):
+            if Path(icon_path).exists():
                 self.icon = QIcon(icon_path)
                 logger.info(f"Loaded icon from {icon_path}")
-                
+
                 # If on macOS and using .icns, we might need to set it specifically
                 return
 
@@ -563,7 +564,7 @@ class SuperKeetApp:
         try:
             # Update tray menu (this should always work)
             self.recent_menu.clear()
-            for i, transcript in enumerate(self.recent_transcriptions):
+            for transcript in self.recent_transcriptions:
                 action_text = (
                     transcript[:50] + "..." if len(transcript) > 50 else transcript
                 )
@@ -579,7 +580,7 @@ class SuperKeetApp:
         if hasattr(self, "dock_recent_menu") and self.dock_recent_menu is not None:
             try:
                 self.dock_recent_menu.clear()
-                for i, transcript in enumerate(self.recent_transcriptions):
+                for transcript in self.recent_transcriptions:
                     action_text = (
                         transcript[:50] + "..." if len(transcript) > 50 else transcript
                     )
@@ -774,7 +775,7 @@ class SuperKeetApp:
             logger.error(f"🛑 Audio system check failed: {e}")
             if "Error -9986" in str(e):
                 logger.error(
-                    "  -> Hint: PortAudio library mismatch. Check Homebrew installation."
+                    "  -> Hint: PortAudio mismatch. Check Homebrew install."
                 )
             return False
 
@@ -785,8 +786,8 @@ class SuperKeetApp:
             subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
             logger.info("✅ FFmpeg available")
         except (FileNotFoundError, subprocess.CalledProcessError):
-            logger.warning("⚠️ FFmpeg not found or error. Audio conversion might fail.")
-            # We don't fail hard here as soundfile might have wheels, but it's good to know
+            logger.warning("⚠️ FFmpeg not found. Audio conversion may fail.")
+            # Don't fail hard; soundfile might have wheels
 
         return True
 

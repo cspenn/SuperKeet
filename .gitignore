@@ -50,5 +50,5 @@ output.wav
 # User data - private voice transcriptions
 transcripts/
 
-# Generated reports
-docs/reports/
+# Documentation (kept locally, not in repo)
+docs/

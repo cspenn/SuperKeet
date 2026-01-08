@@ -1,178 +1,347 @@
-# SuperKeet CI/CD Documentation
+<div align="center">
 
-## Overview
+# SuperKeet
 
-SuperKeet uses GitHub Actions for automated testing, code quality checks, and releases. This document describes the CI/CD workflows and how to use them effectively.
+**Privacy-First Voice-to-Text for macOS**
 
-## Workflows
+*Fast, accurate, and completely offline speech recognition for your Mac*
 
-### 1. Continuous Integration (`ci.yml`)
+[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?style=flat&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![FOSS](https://img.shields.io/badge/100%25-Open%20Source-green.svg)](https://github.com/cspenn/SuperKeet)
 
-**Triggers:** Push/PR to main or develop branches
+[Features](#-features) | [Installation](#-installation) | [Usage](#-usage) | [FAQ](#-faq)
 
-**Jobs:**
-- **Test**: Runs on multiple macOS versions (latest, 13, 12)
-  - Installs system dependencies (PortAudio)
-  - Runs pytest with coverage reporting
-  - Uploads coverage to Codecov
-  - Performs basic smoke test
-  
-- **Build**: Creates application binary (main branch only)
-  - Uses PyInstaller to create macOS app bundle
-  - Uploads build artifacts
-  
-- **Code Quality**: Runs on Ubuntu for speed
-  - Advanced linting with ruff
-  - Security scanning with bandit
-  - Type checking with mypy (if configured)
-  - Uploads security reports
+</div>
 
-### 2. Code Quality (`quality.yml`)
+---
 
-**Triggers:** Push/PR to any branch
+## What is SuperKeet?
 
-**Features:**
-- Pre-commit hook validation
-- Code complexity analysis with radon
-- Dead code detection with vulture
-- Security vulnerability scanning
-- Faster feedback loop for developers
+SuperKeet transforms your voice into text **anywhere on your Mac** with just a hotkey press. Unlike cloud-based dictation tools, SuperKeet runs **100% locally** on your machine—your voice never leaves your computer.
 
-### 3. Release (`release.yml`)
+Perfect for:
+- **Writers** who think faster than they type
+- **Privacy-conscious professionals** who handle sensitive information
+- **Developers** who want dictation in their IDE or terminal
+- **Anyone** who wants fast, accurate voice input without cloud services
 
-**Triggers:** 
-- Release publication
-- Manual workflow dispatch
+### Why SuperKeet?
 
-**Features:**
-- Builds production-ready macOS application
-- Creates DMG installer (if create-dmg available)
-- Attaches assets to GitHub releases
-- Verifies build integrity
-- Basic smoke testing
+| Feature | SuperKeet | Cloud Services |
+|---------|-----------|----------------|
+| **Privacy** | 100% offline, nothing sent to cloud | Your voice is uploaded |
+| **Speed** | Up to 60x real-time on Apple Silicon | Network dependent |
+| **Cost** | Free & Open Source | Subscription fees |
+| **Internet** | Works offline | Requires connection |
+| **Apps** | Works everywhere | Limited integration |
 
-## Local Development Setup
+---
 
-### Install Pre-commit Hooks
+## Features
+
+### Core Capabilities
+- **Push-to-Talk Dictation** - Hold `Cmd + Shift + Space`, speak, release—text appears
+- **Blazing Fast** - Up to 60x real-time transcription speed on Apple Silicon
+- **100% Private** - All processing happens locally, no cloud, no tracking
+- **Universal** - Works in any app that accepts text input
+- **Accurate** - Uses NVIDIA's Parakeet ASR model with smart punctuation
+- **Customizable** - Configure hotkeys, audio settings, and behavior
+
+### Technical Highlights
+- System tray app—stays out of your way
+- Automatic text injection via clipboard
+- Optional transcript logging
+- Real-time audio waveform visualization
+- Configurable audio devices
+- Debug mode for troubleshooting
+
+---
+
+## System Requirements
+
+**Required:**
+- macOS with **Apple Silicon** (M1, M2, M3, M4)
+- Python 3.11 or higher
+- ~2GB available RAM
+- ~600MB for AI model (one-time download)
+
+**Permissions:**
+- Microphone access (for recording)
+- Accessibility access (for text injection)
+
+> **Note:** SuperKeet requires Apple Silicon. Intel Macs are not supported due to the MLX framework requirement.
+
+---
+
+## Installation
+
+### Quick Start (Recommended)
+
+1. **Install ffmpeg** (required for audio processing):
+   ```bash
+   brew install ffmpeg
+   ```
+
+2. **Clone and setup** SuperKeet:
+   ```bash
+   git clone https://github.com/cspenn/SuperKeet.git
+   cd SuperKeet
+   ./setup.sh
+   ```
+
+3. **Launch** the application:
+   ```bash
+   ./startkeet.command
+   ```
+
+That's it! The first launch will download the AI model (~600MB, one-time).
+
+<details>
+<summary><b>Detailed Installation Instructions</b></summary>
+
+### Prerequisites
 
 ```bash
-# Install pre-commit
-pip install pre-commit
+# Install Homebrew if you don't have it
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Install hooks for this repository
-pre-commit install
+# Install ffmpeg
+brew install ffmpeg
 
-# Run hooks on all files (optional)
-pre-commit run --all-files
+# Python 3.11+ (usually pre-installed on modern macOS)
+python3 --version
 ```
 
-### Running Tests Locally
+### Manual Setup
 
-```bash
-# Basic test run
-python -m pytest
+1. **Install UV** (fast dependency manager):
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
-# With coverage
-python -m pytest --cov=src --cov-report=html
+2. **Install dependencies**:
+   ```bash
+   uv sync --all-groups
+   ```
 
-# Run specific test categories
-python -m pytest -m "unit"
-python -m pytest -m "integration" 
-python -m pytest -m "not slow"
+3. **Create config file**:
+   ```bash
+   cp credentials.yml.dist credentials.yml
+   ```
+
+4. **Optional: Pre-download the AI model**:
+   ```bash
+   uv run python download_model.py
+   ```
+
+</details>
+
+---
+
+## Usage
+
+### Basic Operation
+
+1. **Launch SuperKeet** (if not already running):
+   ```bash
+   ./startkeet.command
+   ```
+
+2. **Look for the microphone icon** in your menu bar
+
+3. **Press and hold** `Cmd + Shift + Space`
+
+4. **Speak** your text clearly
+
+5. **Release** the hotkey when done
+
+6. **Text appears** automatically in your active application!
+
+### Customization
+
+Edit `config.yml` to customize:
+
+```yaml
+# Change the hotkey
+hotkey:
+  combination: "ctrl+space"  # Options: ctrl+space, cmd+space, etc.
+
+# Adjust audio settings
+audio:
+  sample_rate: 16000
+  gain: 2.0  # Increase if microphone is quiet
+
+# Enable transcript logging
+transcripts:
+  enabled: true
+  directory: "transcripts"
 ```
 
-### Code Quality Checks
+### Menu Bar Options
 
-```bash
-# Linting
-ruff check src/ tests/
-ruff format src/ tests/
+Right-click the menu bar icon for:
+- Recent transcriptions (quick re-use)
+- Settings
+- Quit
 
-# Security scan
-bandit -r src/ -ll
+---
 
-# Type checking (if configured)
-mypy src/
+## Configuration
 
-# Application validation
-./checkpython.sh
-```
+SuperKeet is highly configurable through `config.yml`:
 
-## Branch Strategy
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `hotkey.combination` | Global hotkey | `ctrl+space` |
+| `audio.device` | Specific microphone | Auto-detect |
+| `audio.gain` | Microphone volume boost | `2.0` |
+| `transcripts.enabled` | Save transcripts to disk | `true` |
+| `text.auto_paste` | Auto-paste after transcription | `true` |
+| `logging.level` | Log verbosity | `DEBUG` |
 
-- **main**: Production-ready code, triggers full CI/CD pipeline
-- **develop**: Integration branch, runs all tests but no builds
-- **feature/***: Feature branches, runs quality checks
+See [config.yml](config.yml) for all available options.
 
-## Coverage and Quality Metrics
+---
 
-### Test Coverage
-- Target: >80% code coverage
-- Reports uploaded to Codecov for main branch
-- HTML reports generated locally in `htmlcov/`
+## FAQ
 
-### Code Quality Standards
-- Line length: 88 characters (ruff)
-- Security: Bandit scanning enabled
-- Complexity: Monitored with radon (C+ rating target)
-- Dead code: Detected with vulture
+<details>
+<summary><b>Why do I need Accessibility permissions?</b></summary>
 
-### Performance Benchmarks
-- Application startup: <5 seconds
-- Test suite: <2 minutes on macOS
-- Build time: <10 minutes
+SuperKeet needs Accessibility permissions to automatically paste transcribed text into your active application. Without it, text will be copied to your clipboard but not pasted.
+
+**To grant access:**
+1. Go to System Settings > Privacy & Security > Accessibility
+2. Click the lock to make changes
+3. Add Terminal (or your terminal app) to the list
+4. Restart SuperKeet
+
+</details>
+
+<details>
+<summary><b>Does SuperKeet work without an internet connection?</b></summary>
+
+Yes! After the initial model download (~600MB, one-time), SuperKeet works 100% offline. Your voice never leaves your computer.
+
+</details>
+
+<details>
+<summary><b>Can I use a different hotkey?</b></summary>
+
+Absolutely! Edit `config.yml` and change the `hotkey.combination` value. Supported combinations:
+- `ctrl+space`
+- `cmd+space`
+- `cmd+shift+space`
+- And more...
+
+</details>
+
+<details>
+<summary><b>What languages are supported?</b></summary>
+
+Currently, SuperKeet supports **English only**. The Parakeet model is optimized for English and provides the best accuracy and speed for this language.
+
+</details>
+
+<details>
+<summary><b>Will this work on Intel Macs?</b></summary>
+
+No, SuperKeet requires Apple Silicon (M1/M2/M3/M4). The MLX framework used for AI acceleration is Apple Silicon-only.
+
+</details>
+
+<details>
+<summary><b>How accurate is the transcription?</b></summary>
+
+SuperKeet uses NVIDIA's Parakeet ASR model, which achieves state-of-the-art accuracy on English benchmarks. It includes smart punctuation and capitalization. Accuracy depends on:
+- Clear speech
+- Good microphone quality
+- Minimal background noise
+
+</details>
+
+---
 
 ## Troubleshooting
 
-### Common CI Issues
+### Text Not Being Pasted Automatically
 
-1. **PortAudio installation fails**
-   - macOS runner issue - usually retry fixes it
-   - Check brew formulae availability
+**Solution:** Grant Accessibility permissions (see FAQ above)
 
-2. **Qt tests fail with display issues**
-   - Uses QT_QPA_PLATFORM=offscreen
-   - DISPLAY=:99.0 for virtual display
+### "ImportError: Numba needs NumPy 2.2 or less"
 
-3. **PyInstaller build fails**
-   - Check superkeet.spec configuration
-   - Verify all dependencies included
+**Solution:** Reset your environment:
+```bash
+rm -rf .venv
+./setup.sh
+```
 
-4. **Coverage upload fails**
-   - Requires CODECOV_TOKEN secret
-   - Only runs on main branch with Python 3.11
+### Model Download Fails
 
-### Local Development Issues
+**Solution:** Try manual download:
+```bash
+uv run python -c "from parakeet_mlx import from_pretrained; from_pretrained('mlx-community/parakeet-tdt-0.6b-v3')"
+```
 
-1. **Pre-commit hooks fail**
-   ```bash
-   pre-commit clean
-   pre-commit install --install-hooks
-   ```
+### Microphone Not Working
 
-2. **Tests fail locally but pass in CI**
-   - Check Python version (3.11 required)
-   - Verify system dependencies installed
-   - Check QT environment variables
+**Solution:** List available devices and configure in `config.yml`:
+```bash
+uv run python -c "import sounddevice; print(sounddevice.query_devices())"
+```
 
-3. **Build artifacts missing**
-   - Ensure PyInstaller spec file exists
-   - Check file permissions and paths
+---
 
-## Security Considerations
+## Development
 
-- Bandit security scanning enabled
-- No secrets stored in code
-- Dependencies scanned with safety
-- Private key detection in pre-commit
+### Running Tests
+```bash
+uv run pytest
+```
+
+### Quality Checks
+```bash
+./checkpython.sh
+```
+
+---
 
 ## Contributing
 
-1. Create feature branch from develop
-2. Make changes with tests
-3. Run pre-commit hooks locally
-4. Push and create PR to develop
-5. CI must pass before merge
-6. Releases created from main branch
+SuperKeet is open source and contributions are welcome!
 
-For questions about the CI/CD setup, check the workflow files in `.github/workflows/` or create an issue.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run quality checks (`./checkpython.sh`)
+5. Commit your changes
+6. Push to the branch
+7. Open a Pull Request
+
+See [AGENTS.md](AGENTS.md) for AI-assisted development guidelines.
+
+---
+
+## License
+
+SuperKeet is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- **NVIDIA** for the [Parakeet ASR model](https://github.com/NVIDIA/NeMo)
+- **MLX Community** for the Apple Silicon optimization
+- **Parakeet-MLX** project for the Python bindings
+
+---
+
+<div align="center">
+
+**Built with care for the macOS community**
+
+[Report Bug](https://github.com/cspenn/SuperKeet/issues) | [Request Feature](https://github.com/cspenn/SuperKeet/issues)
+
+</div>

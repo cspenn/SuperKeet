@@ -8,10 +8,17 @@ env/
 venv/
 ENV/
 
-# Poetry
+# Poetry/Build
 dist/
+build/
 *.egg-info/
 .pytest_cache/
+
+# Test coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # IDE
 .vscode/
@@ -39,3 +46,9 @@ temp_batch/
 *.tmp
 *.bak
 output.wav
+
+# User data - private voice transcriptions
+transcripts/
+
+# Generated reports
+docs/reports/

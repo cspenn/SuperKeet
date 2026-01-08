@@ -18,44 +18,34 @@ jobs:
       with:
         python-version: 3.11
 
-    - name: Cache pip dependencies
+    - name: Install UV
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+    - name: Cache UV dependencies
       uses: actions/cache@v3
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-quality-${{ hashFiles('**/pyproject.toml') }}
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
         restore-keys: |
-          ${{ runner.os }}-quality-
+          ${{ runner.os }}-uv-
 
-    - name: Install quality tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install ruff bandit safety pre-commit
-
-    - name: Run pre-commit hooks
-      run: |
-        pre-commit run --all-files || echo "Pre-commit completed with findings"
+    - name: Install dependencies
+      run: uv sync --all-groups
 
     - name: Lint with ruff
       run: |
-        ruff check superkeet/ tests/ --output-format=github --statistics
-        ruff format --check superkeet/ tests/
+        uv run ruff check superkeet/ tests/ --output-format=github --statistics
+        uv run ruff format --check superkeet/ tests/
 
     - name: Security scan with bandit
-      run: |
-        bandit -r superkeet/ -ll -x tests/
-
-    - name: Check for security vulnerabilities
-      run: |
-        pip freeze > requirements-check.txt
-        safety check -r requirements-check.txt || echo "Safety check completed"
+      run: uv run bandit -r superkeet/ -ll -x tests/
 
     - name: Check code complexity
       run: |
-        pip install radon
-        radon cc superkeet/ --min=C --show-complexity
-        radon mi superkeet/ --min=B --show
+        uv run radon cc superkeet/ --min=C --show-complexity
+        uv run radon mi superkeet/ --min=B --show
 
     - name: Dead code detection
       run: |
-        pip install vulture
+        uv tool install vulture
         vulture superkeet/ --min-confidence=80 || echo "Vulture scan completed"

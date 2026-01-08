@@ -6,7 +6,7 @@ reinitialization for the AudioRecorder class.
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import sounddevice as sd
@@ -205,47 +205,6 @@ def force_portaudio_reinit() -> bool:
 
     except Exception as e:
         logger.error(f"Force PortAudio reinitialization failed: {e}")
-        return False
-
-
-def execute_reinit_strategies(recorder: "AudioRecorder") -> bool:
-    """Execute multiple reinitialization strategies.
-
-    Args:
-        recorder: The AudioRecorder instance.
-
-    Returns:
-        True if any strategy succeeded, False otherwise.
-    """
-    strategies = [
-        ("simple_reinit", lambda: try_portaudio_reinit(recorder)),
-        ("force_reinit", force_portaudio_reinit),
-    ]
-
-    for name, strategy in strategies:
-        logger.info(f"Trying reinit strategy: {name}")
-        if try_single_reinit_strategy(strategy):
-            logger.info(f"Reinit strategy '{name}' succeeded")
-            return True
-        logger.debug(f"Reinit strategy '{name}' failed")
-
-    logger.error("All reinitialization strategies failed")
-    return False
-
-
-def try_single_reinit_strategy(strategy: Any) -> bool:
-    """Try a single reinitialization strategy.
-
-    Args:
-        strategy: A callable that attempts reinitialization.
-
-    Returns:
-        True if the strategy succeeded, False otherwise.
-    """
-    try:
-        return strategy()
-    except Exception as e:
-        logger.debug(f"Reinit strategy failed with exception: {e}")
         return False
 
 

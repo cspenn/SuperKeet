@@ -45,8 +45,7 @@ class AudioDebugManager:
             if sample_rate <= 0:
                 logger.warning(f"🟡 Invalid sample rate: {sample_rate}")
                 return False
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            filename = f"debug_audio_{timestamp}.wav"
+            filename = self._generate_debug_filename()
             filepath = Path(self.debug_directory) / filename
 
             # Ensure debug directory exists

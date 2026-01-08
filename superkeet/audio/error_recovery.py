@@ -81,21 +81,27 @@ def attempt_enhanced_recovery(recorder: "AudioRecorder", error: Exception) -> bo
         if handle_portaudio_9986_error(recorder, recorder.device):
             return True
 
-    # Strategy 2: Try PortAudio reinitialization
+    # Strategy 2: RODECaster Pro specific recovery
+    if is_rodecast_device(recorder.device):
+        logger.info("Detected RODECaster Pro, attempting device-specific recovery")
+        if handle_rodecast_pro_errors(recorder, error):
+            return True
+
+    # Strategy 3: Try PortAudio reinitialization
     if try_portaudio_reinit(recorder):
         logger.info("PortAudio reinitialized, retrying stream creation")
         if try_restart_recording(recorder):
             return True
 
-    # Strategy 3: Try fallback device
+    # Strategy 4: Try fallback device
     if try_fallback_device(recorder):
         return True
 
-    # Strategy 4: Try fallback sample rates
+    # Strategy 5: Try fallback sample rates
     if try_fallback_sample_rates(recorder):
         return True
 
-    # Strategy 5: Try alternative configurations
+    # Strategy 6: Try alternative configurations
     if try_alternative_configs(recorder):
         return True
 
@@ -310,26 +316,6 @@ def attempt_auhal_recovery(
             logger.debug(f"AUHAL recovery config {i} failed: {e}")
 
     logger.error("AUHAL recovery: all configs failed")
-    return False
-
-
-def handle_audio_unit_error(recorder: "AudioRecorder", error: Exception) -> bool:
-    """Handle Audio Unit specific errors.
-
-    Args:
-        recorder: The AudioRecorder instance.
-        error: The exception that occurred.
-
-    Returns:
-        True if recovery succeeded.
-    """
-    error_str = str(error)
-    logger.warning(f"Audio Unit error detected: {error_str}")
-
-    # Try basic recovery
-    if try_portaudio_reinit(recorder):
-        return try_restart_recording(recorder)
-
     return False
 
 

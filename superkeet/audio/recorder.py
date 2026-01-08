@@ -139,14 +139,6 @@ class AudioRecorder(QObject):
         """Force a complete PortAudio reinitialization."""
         return perm.force_portaudio_reinit()
 
-    def _execute_reinit_strategies(self) -> bool:
-        """Execute multiple reinitialization strategies."""
-        return perm.execute_reinit_strategies(self)
-
-    def _try_single_reinit_strategy(self, strategy: Any) -> bool:
-        """Try a single reinitialization strategy."""
-        return perm.try_single_reinit_strategy(strategy)
-
     def _verify_coreaudio_daemon_health(self) -> bool:
         """Verify Core Audio daemon health on macOS."""
         return perm.verify_coreaudio_daemon_health()
@@ -344,10 +336,6 @@ class AudioRecorder(QObject):
     def _attempt_auhal_recovery(self, device_index: Optional[int]) -> bool:
         """Attempt AUHAL-specific recovery."""
         return recovery.attempt_auhal_recovery(self, device_index)
-
-    def _handle_audio_unit_error(self, error: Exception) -> bool:
-        """Handle Audio Unit specific errors."""
-        return recovery.handle_audio_unit_error(self, error)
 
     def _handle_rodecast_pro_errors(self, error: Exception) -> bool:
         """Handle RODECaster Pro specific errors."""
